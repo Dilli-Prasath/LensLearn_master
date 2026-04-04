@@ -16,6 +16,24 @@ const GRADE_LEVELS = [
   'professional / advanced'
 ];
 
+function formatModelName(model) {
+  if (!model) return 'Unknown';
+  const m = model.toLowerCase();
+  if (m.startsWith('gemma4')) {
+    const variant = m.split(':')[1] || '';
+    return `Gemma 4${variant ? ' ' + variant.toUpperCase() : ''}`;
+  }
+  if (m.startsWith('gemma3')) {
+    const variant = m.split(':')[1] || '';
+    return `Gemma 3${variant ? ' ' + variant.toUpperCase() : ''}`;
+  }
+  if (m.startsWith('gemma')) {
+    const parts = m.replace('gemma', 'Gemma ').split(':');
+    return parts[0] + (parts[1] ? ' ' + parts[1].toUpperCase() : '');
+  }
+  return model;
+}
+
 export default function SettingsPanel({ settings, onChange, connectionStatus }) {
   const update = (key, value) => onChange({ ...settings, [key]: value });
 
@@ -173,7 +191,7 @@ export default function SettingsPanel({ settings, onChange, connectionStatus }) 
               {connectionStatus?.connected && (
                 <div style={styles.infoRow}>
                   <span style={styles.infoLabel}>Model</span>
-                  <span style={styles.infoValue}>{connectionStatus.model}</span>
+                  <span style={styles.infoValue}>{formatModelName(connectionStatus.model)}</span>
                 </div>
               )}
               {!connectionStatus?.connected && (

@@ -1,6 +1,25 @@
 import { Wifi, WifiOff, BookOpen, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
+function formatModelName(model) {
+  if (!model) return 'Unknown';
+  // gemma4:e4b → Gemma 4 E4B, gemma3:4b → Gemma 3 4B, gemma4:26b → Gemma 4 26B
+  const m = model.toLowerCase();
+  if (m.startsWith('gemma4')) {
+    const variant = m.split(':')[1] || '';
+    return `Gemma 4${variant ? ' ' + variant.toUpperCase() : ''}`;
+  }
+  if (m.startsWith('gemma3')) {
+    const variant = m.split(':')[1] || '';
+    return `Gemma 3${variant ? ' ' + variant.toUpperCase() : ''}`;
+  }
+  if (m.startsWith('gemma')) {
+    const parts = m.replace('gemma', 'Gemma ').split(':');
+    return parts[0] + (parts[1] ? ' ' + parts[1].toUpperCase() : '');
+  }
+  return model;
+}
+
 export default function Header({ connectionStatus, onHomeClick, onReconnect }) {
   const [isReconnecting, setIsReconnecting] = useState(false);
 
@@ -41,7 +60,7 @@ export default function Header({ connectionStatus, onHomeClick, onReconnect }) {
             <div style={styles.statusBadgeConnected} className="pop-in" title={`Connected: ${connectionStatus.model}`}>
               <div style={styles.statusDot} />
               <Wifi size={14} color="var(--success)" />
-              <span style={{ color: 'var(--success)', fontSize: 12, fontWeight: 600 }}>Gemma 4</span>
+              <span style={{ color: 'var(--success)', fontSize: 12, fontWeight: 600 }}>{formatModelName(connectionStatus.model)}</span>
             </div>
           ) : (
             <div style={styles.statusBadge} title="Ollama not connected">

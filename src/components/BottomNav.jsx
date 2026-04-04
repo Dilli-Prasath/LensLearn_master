@@ -21,7 +21,8 @@ export default function BottomNav({ activeTab, onTabChange }) {
               key={tab.id}
               style={{
                 ...styles.navItem,
-                ...(isActive ? styles.navItemActive : {}),
+                ...(isActive && !isScan ? styles.navItemActive : {}),
+                ...(isScan ? styles.scanNavItem : {}),
               }}
               onClick={() => onTabChange(tab.id)}
               aria-label={tab.label}
@@ -29,21 +30,24 @@ export default function BottomNav({ activeTab, onTabChange }) {
             >
               {isScan ? (
                 <div style={{
-                  ...styles.scanIconWrap,
-                  ...(isActive ? styles.scanIconWrapActive : {}),
+                  ...styles.scanIconBg,
+                  ...(isActive ? styles.scanIconBgActive : {}),
                 }}>
-                  <Icon size={22} />
+                  <Icon size={20} />
                 </div>
               ) : (
                 <Icon
-                  size={22}
+                  size={21}
                   style={{
-                    ...styles.navIcon,
-                    ...(isActive ? { transform: 'scale(1.12)' } : {}),
+                    transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    ...(isActive ? { transform: 'scale(1.1)' } : {}),
                   }}
                 />
               )}
-              <span style={styles.navLabel}>{tab.label}</span>
+              <span style={{
+                ...styles.navLabel,
+                ...(isScan && isActive ? { color: 'var(--primary-light)' } : {}),
+              }}>{tab.label}</span>
               {isActive && <div style={styles.activeIndicator} className="scale-in" />}
             </button>
           );
@@ -86,40 +90,40 @@ const styles = {
     cursor: 'pointer',
     fontSize: 11,
     fontWeight: 600,
-    transition: 'color 0.2s, transform 0.2s',
+    transition: 'color 0.2s',
     position: 'relative',
     flex: 1,
   },
   navItemActive: {
     color: 'var(--primary-light)',
   },
-  navIcon: {
-    transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+  scanNavItem: {
+    color: 'var(--text-muted)',
   },
-  scanIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: '50%',
+  // Scan icon — filled rounded square background, stays inside the nav
+  scanIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     background: 'var(--bg-card)',
-    border: '2px solid var(--border)',
+    border: '1.5px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -14,
     transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    color: 'var(--text-secondary)',
   },
-  scanIconWrapActive: {
+  scanIconBgActive: {
     background: 'var(--primary)',
     borderColor: 'var(--primary)',
     color: 'white',
-    transform: 'scale(1.1)',
-    boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
+    transform: 'scale(1.05)',
+    boxShadow: '0 2px 12px rgba(99,102,241,0.4)',
   },
   navLabel: {
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    transition: 'opacity 0.15s',
   },
   activeIndicator: {
     position: 'absolute',
