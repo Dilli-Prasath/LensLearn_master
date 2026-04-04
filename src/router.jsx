@@ -34,6 +34,7 @@ const HistoryDetailPage = lazy(() => import('./pages/HistoryDetailPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AchievementsPage = lazy(() => import('./pages/AchievementsPage'));
 const StudyPlanPage = lazy(() => import('./pages/StudyPlanPage'));
+const AccessibilityPage = lazy(() => import('./pages/AccessibilityPage'));
 
 export const router = createBrowserRouter([
   {
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: 'history', element: <HistoryPage /> },
       { path: 'history/:sessionId', element: <HistoryDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'accessibility', element: <AccessibilityPage /> },
 
       // ── Scan sub-routes ──
       { path: 'explain', element: <ExplanationPage /> },

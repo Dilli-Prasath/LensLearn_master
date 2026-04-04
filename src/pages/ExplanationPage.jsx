@@ -2,10 +2,12 @@
  * ExplanationPage — Shows AI explanation after a scan.
  * Reads all state from the scan store. No prop drilling.
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ExplanationView from '../components/ExplanationView';
-import { useScanStore, useSettingsStore, useHistoryStore } from '../store';
+import { useScanStore, useSettingsStore, useHistoryStore, useAccessibilityStore } from '../store';
+import speechService from '../services/speechService';
+import { announce } from '../components/accessibility/ScreenReaderAnnouncer';
 
 // Back button
 function BackButton({ onClick, label = 'Back' }) {
@@ -33,6 +35,23 @@ export default function ExplanationPage() {
 
   const settings = useSettingsStore();
   const saveSession = useHistoryStore((s) => s.saveSession);
+  const autoRead = useAccessibilityStore((s) => s.autoReadExplanations);
+  const speechRate = useAccessibilityStore((s) => s.speechRate);
+  const prevStreamingRef = useRef(isStreaming);
+
+  // Auto-read explanation for blind users when streaming finishes
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming && explanation && autoRead) {
+      announce('Explanation ready. Reading aloud.');
+      speechService.speak(explanation, { language: settings.language, rate: speechRate });
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming, explanation, autoRead, settings.language, speechRate]);
+
+  // Announce streaming status
+  useEffect(() => {
+    if (isStreaming) announce('Generating explanation, please wait...');
+  }, [isStreaming]);
 
   const isViewingHistory = !!viewingSession;
   const imagePreview = isViewingHistory ? viewingSession?.image : capturedImage;

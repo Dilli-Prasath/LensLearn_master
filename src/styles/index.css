@@ -778,3 +778,175 @@ input:focus, textarea:focus, select:focus {
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
+
+/* ========= COMPREHENSIVE ACCESSIBILITY ========= */
+
+/* ── Screen-reader only (hidden visually, readable by assistive tech) ── */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ── Skip Links (keyboard navigation) ── */
+.skip-links {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 99999;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  padding: 12px 24px;
+  background: var(--primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  z-index: 99999;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Enhanced Focus Ring (for data-focus-highlight) ── */
+body[data-focus-highlight="true"] *:focus-visible {
+  outline: 4px solid var(--accent) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.2) !important;
+}
+
+body[data-focus-highlight="true"] button:focus-visible,
+body[data-focus-highlight="true"] a:focus-visible,
+body[data-focus-highlight="true"] input:focus-visible,
+body[data-focus-highlight="true"] select:focus-visible {
+  outline: 4px solid var(--accent) !important;
+  outline-offset: 3px !important;
+}
+
+/* ── Large Buttons Mode ── */
+body[data-large-buttons="true"] button,
+body[data-large-buttons="true"] a,
+body[data-large-buttons="true"] [role="button"],
+body[data-large-buttons="true"] [role="switch"],
+body[data-large-buttons="true"] [role="radio"] {
+  min-height: 48px !important;
+  min-width: 48px !important;
+  font-size: 15px !important;
+}
+
+body[data-large-buttons="true"] .btn {
+  padding: 14px 28px !important;
+  font-size: 16px !important;
+}
+
+/* ── Color Blind Modes ── */
+body[data-color-blind-mode="protanopia"] {
+  filter: url('#protanopia-filter');
+  --success: #2563eb;
+  --error: #7c3aed;
+}
+
+body[data-color-blind-mode="deuteranopia"] {
+  filter: url('#deuteranopia-filter');
+  --success: #2563eb;
+  --error: #7c3aed;
+}
+
+body[data-color-blind-mode="tritanopia"] {
+  filter: url('#tritanopia-filter');
+  --success: #dc2626;
+  --error: #ea580c;
+}
+
+/* ── Simplified UI Mode (hides advanced features) ── */
+body[data-simplified-ui="true"] [data-advanced="true"] {
+  display: none !important;
+}
+
+body[data-simplified-ui="true"] .page {
+  font-size: 18px;
+}
+
+/* ── Guided Mode (highlights next action) ── */
+body[data-guided-mode="true"] [data-guide-step="active"] {
+  position: relative;
+  z-index: 100;
+  box-shadow: 0 0 0 4px var(--accent), 0 0 0 8px rgba(245, 158, 11, 0.2) !important;
+  animation: breathe 2s ease-in-out infinite;
+}
+
+body[data-guided-mode="true"] [data-guide-step="active"]::after {
+  content: attr(data-guide-text);
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  z-index: 101;
+}
+
+/* ── Emoji Labels for children ── */
+body[data-emoji-labels="true"] [data-emoji]::before {
+  content: attr(data-emoji) " ";
+  font-size: 1.2em;
+}
+
+/* ── Screen Reader Enhanced Mode ── */
+body[data-screen-reader="true"] [aria-hidden="true"] {
+  display: none !important;
+}
+
+body[data-screen-reader="true"] .decorative {
+  display: none !important;
+}
+
+/* ── System preference auto-detection ── */
+@media (prefers-contrast: more) {
+  :root {
+    --text-primary: #ffffff;
+    --text-secondary: #e5e7eb;
+    --bg-dark: #000000;
+    --border: #6b7280;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  /* Auto light mode respects system preference */
+}
+
+/* ── Print styles for exported content ── */
+@media print {
+  body { background: white; color: black; }
+  .page { overflow: visible; }
+  nav, header, .skip-links { display: none; }
+}

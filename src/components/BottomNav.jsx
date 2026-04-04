@@ -21,8 +21,8 @@ export default function BottomNav({ activeTab }) {
   const navigate = useNavigate();
 
   return (
-    <nav style={styles.nav}>
-      <div style={styles.topBorder} />
+    <nav style={styles.nav} role="navigation" aria-label="Main navigation" id="bottom-nav">
+      <div style={styles.topBorder} aria-hidden="true" />
       <div style={styles.navInner}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
