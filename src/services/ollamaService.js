@@ -186,6 +186,17 @@ OUTPUT FORMAT (strictly follow this JSON format):
   }
 
   /**
+   * Translate/re-explain content in a different language
+   */
+  async translate(content, options = {}) {
+    const { language = 'English', onStream = null } = options;
+
+    const systemPrompt = `You are LensLearn. Translate and re-explain the following educational content into ${language}. Keep the same structure, formatting, and level of detail. Use natural ${language} phrasing, not word-for-word translation.`;
+
+    return this._chat(systemPrompt, `Re-explain this in ${language}:\n\n${content}`, [], onStream);
+  }
+
+  /**
    * Follow-up question about previously explained content
    */
   async askFollowUp(context, question, options = {}) {

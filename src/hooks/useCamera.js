@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 /**
  * Custom hook for camera capture functionality
@@ -24,11 +24,7 @@ export function useCamera() {
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      // Set active first so video element mounts, then connect in useEffect
       setCameraActive(true);
       return true;
     } catch (err) {
@@ -36,6 +32,16 @@ export function useCamera() {
       return false;
     }
   }, [facingMode]);
+
+  // Connect stream to video element AFTER it mounts
+  useEffect(() => {
+    if (cameraActive && streamRef.current && videoRef.current) {
+      if (!videoRef.current.srcObject) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [cameraActive]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {

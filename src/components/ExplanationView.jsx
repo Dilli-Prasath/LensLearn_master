@@ -3,11 +3,12 @@ import ReactMarkdown from 'react-markdown';
 import {
   Volume2, VolumeX, ChevronDown, ChevronUp,
   MessageCircle, Brain, Send, Sparkles, Copy, Check, Share2, Layers, CloudOff,
-  Heart, Globe
+  Heart, Globe, Download
 } from 'lucide-react';
 import speechService from '../services/speechService';
 import historyService from '../services/historyService';
 import cacheService from '../services/cacheService';
+import exportService from '../services/exportService';
 
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'German', 'Portuguese',
@@ -124,6 +125,15 @@ export default function ExplanationView({
     setFollowUpLoading(false);
   };
 
+  const handleExportNotes = () => {
+    exportService.exportAsText(explanation, {
+      subject: 'Study Notes',
+      language,
+      timestamp: new Date().toISOString(),
+      imageHash
+    });
+  };
+
   return (
     <div style={styles.container} className="slide-up">
       {/* Language selector */}
@@ -231,6 +241,10 @@ export default function ExplanationView({
           <button className="btn btn-secondary" onClick={onSimplify}>
             <Sparkles size={18} />
             Simplify
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportNotes} title="Export notes as text file">
+            <Download size={18} />
+            Save Notes
           </button>
         </div>
       )}

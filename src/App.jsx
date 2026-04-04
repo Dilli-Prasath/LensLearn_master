@@ -63,7 +63,8 @@ export default function App() {
     if (activeTab !== 'scan') {
       camera.stopCamera();
     }
-  }, [activeTab, camera]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Apply accessibility settings to document.body
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function App() {
     setView('explanation');
 
     try {
+      setExplanation('*Analyzing your image... This may take 30-60 seconds for image processing.*');
       await ollamaService.explainImage(camera.imageBase64, {
         language: settings.language,
         gradeLevel: settings.gradeLevel,
@@ -91,7 +93,7 @@ export default function App() {
       });
     } catch (err) {
       setExplanation(
-        `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running on your computer\n2. You've downloaded Gemma 4: \`ollama pull gemma4:e4b\`\n3. Try refreshing the page\n\n*Error: ${err.message}*`
+        `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running on your computer\n2. Run: \`ollama pull gemma3:4b\`\n3. Start Ollama: \`OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve\`\n4. Start dev server with: \`NO_PROXY=127.0.0.1,localhost npx vite --host\`\n\n*Error: ${err.message}*`
       );
     }
     setIsStreaming(false);
@@ -162,6 +164,26 @@ export default function App() {
     }
     setIsStreaming(false);
   }, [explanation, settings.language]);
+
+  // Handle language change from explanation view — re-translate content
+  const handleLanguageChange = useCallback(async (newLang) => {
+    setSettings(prev => ({ ...prev, language: newLang }));
+    if (explanation && newLang !== settings.language) {
+      setIsStreaming(true);
+      const originalExplanation = explanation;
+      setExplanation('');
+      try {
+        await ollamaService.translate(originalExplanation, {
+          language: newLang,
+          onStream: (fullText) => setExplanation(fullText)
+        });
+      } catch (err) {
+        console.error('Translation failed:', err);
+        setExplanation(originalExplanation); // Restore original on error
+      }
+      setIsStreaming(false);
+    }
+  }, [explanation, settings.language, setSettings]);
 
   // Follow-up question
   const handleFollowUp = useCallback(async (question) => {
@@ -311,7 +333,7 @@ export default function App() {
               quizLoading={quizLoading}
               flashcardsLoading={flashcardsLoading}
               onSaveSession={handleSaveSession}
-              onLanguageChange={(lang) => setSettings({ ...settings, language: lang })}
+              onLanguageChange={handleLanguageChange}
             />
           </>
         )}
@@ -372,7 +394,7 @@ export default function App() {
               onAskFollowUp={handleFollowUp}
               quizLoading={quizLoading}
               flashcardsLoading={flashcardsLoading}
-              onLanguageChange={(lang) => setSettings({ ...settings, language: lang })}
+              onLanguageChange={handleLanguageChange}
             />
           </>
         )}

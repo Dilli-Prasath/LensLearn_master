@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Trash2, Eye, Heart } from 'lucide-react';
+import { Search, Trash2, Eye, Heart, Download } from 'lucide-react';
 import historyService from '../services/historyService';
+import exportService from '../services/exportService';
 
 export default function HistoryPage({ onViewSession, onDeleteAll }) {
   const [sessions, setSessions] = useState(historyService.getSessions());
@@ -41,6 +42,10 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
     }
   };
 
+  const handleExportAll = () => {
+    exportService.exportAllNotes(sessions);
+  };
+
   if (sessions.length === 0) {
     return (
       <div style={styles.container}>
@@ -58,6 +63,18 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
 
   return (
     <div style={styles.container}>
+      {/* Export All Button */}
+      <div style={styles.exportBar}>
+        <button
+          style={styles.exportBtn}
+          onClick={handleExportAll}
+          title="Export all study notes as a text file"
+        >
+          <Download size={18} />
+          Export All Notes
+        </button>
+      </div>
+
       {/* Filter Tabs */}
       <div style={styles.filterTabs}>
         <button
@@ -185,6 +202,25 @@ const styles = {
     padding: '16px 16px 100px',
     maxWidth: 480,
     margin: '0 auto',
+  },
+  exportBar: {
+    marginBottom: 16,
+  },
+  exportBtn: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '12px 24px',
+    background: 'var(--primary)',
+    border: 'none',
+    color: 'white',
+    borderRadius: 'var(--radius)',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
   },
   filterTabs: {
     display: 'flex',
