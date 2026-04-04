@@ -38,9 +38,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/ollama': {
-        target: 'http://localhost:11434',
+        target: 'http://127.0.0.1:11434',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ollama/, '')
+        rewrite: (path) => path.replace(/^\/api\/ollama/, ''),
+        // Bypass Zoho corporate proxy for local Ollama
+        agent: false,
+        configure: (proxy) => {
+          delete proxy.options.agent;
+        }
       }
     }
   }

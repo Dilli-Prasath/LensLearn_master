@@ -76,8 +76,12 @@ export default function CameraCapture({
           playsInline
           muted
           style={styles.video}
+          onLoadedMetadata={(e) => e.target.play()}
         />
         <div style={styles.cameraOverlay}>
+          {/* Scanning animation effect */}
+          <div style={styles.scanLine} />
+
           <div style={styles.cameraGuide}>
             <div style={{ ...styles.corner, top: 0, left: 0 }} />
             <div style={{ ...styles.corner, top: 0, right: 0, transform: 'scaleX(-1)' }} />
@@ -196,11 +200,14 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     background: '#000',
+    minHeight: '60vh',
+    overflow: 'hidden',
   },
   video: {
     flex: 1,
     objectFit: 'cover',
     width: '100%',
+    minHeight: '50vh',
   },
   cameraOverlay: {
     position: 'absolute',
@@ -210,6 +217,15 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     pointerEvents: 'none',
+  },
+  scanLine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    background: 'linear-gradient(180deg, transparent, var(--primary-light), transparent)',
+    animation: 'scanAnimation 2s ease-in-out infinite',
   },
   cameraGuide: {
     position: 'relative',

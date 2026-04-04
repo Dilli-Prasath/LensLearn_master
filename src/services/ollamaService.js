@@ -4,10 +4,10 @@
  */
 
 const OLLAMA_BASE = '/api/ollama';
-const DEFAULT_MODEL = 'gemma4:e4b';
+const DEFAULT_MODEL = 'gemma3:4b';
 
-// Fallback models in order of preference
-const MODEL_FALLBACKS = ['gemma4:e4b', 'gemma4:e2b', 'gemma4', 'gemma3'];
+// Fallback models in order of preference (will auto-detect best available)
+const MODEL_FALLBACKS = ['gemma4:e4b', 'gemma4:e2b', 'gemma4', 'gemma3:4b', 'gemma3'];
 
 class OllamaService {
   constructor() {

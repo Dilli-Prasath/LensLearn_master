@@ -64,11 +64,33 @@ export default function QuizView({ quiz, onClose, onRetry }) {
 
   return (
     <div style={styles.container} className="slide-up">
-      {/* Progress */}
+      {/* Progress Ring */}
       <div style={styles.progress}>
-        <span style={styles.progressText}>Question {currentQ + 1} of {questions.length}</span>
-        <div style={styles.progressBar}>
-          <div style={{ ...styles.progressFill, width: `${((currentQ + 1) / questions.length) * 100}%` }} />
+        <div style={styles.progressCircleContainer}>
+          <svg style={styles.progressCircle} viewBox="0 0 100 100">
+            <circle
+              cx="50"
+              cy="50"
+              r="45"
+              fill="none"
+              stroke="var(--border)"
+              strokeWidth="2"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r="45"
+              fill="none"
+              stroke="var(--primary-light)"
+              strokeWidth="2"
+              strokeDasharray={`${283 * ((currentQ + 1) / questions.length)} 283`}
+              style={styles.progressCircleStroke}
+            />
+          </svg>
+          <div style={styles.progressText}>
+            <span style={styles.progressNumber}>{currentQ + 1}</span>
+            <span style={styles.progressDenom}>of {questions.length}</span>
+          </div>
         </div>
       </div>
 
@@ -137,19 +159,43 @@ const styles = {
     gap: 16,
     padding: 16,
   },
-  progress: { display: 'flex', flexDirection: 'column', gap: 8 },
-  progressText: { fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 },
-  progressBar: {
-    height: 4,
-    background: 'var(--bg-card)',
-    borderRadius: 4,
-    overflow: 'hidden',
+  progress: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
-  progressFill: {
+  progressCircleContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+  },
+  progressCircle: {
+    width: '100%',
     height: '100%',
-    background: 'var(--primary)',
-    borderRadius: 4,
-    transition: 'width 0.3s ease',
+    transform: 'rotate(-90deg)',
+  },
+  progressCircleStroke: {
+    transition: 'stroke-dasharray 0.6s ease',
+  },
+  progressText: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+  },
+  progressNumber: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: 'var(--primary-light)',
+  },
+  progressDenom: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
   },
   questionText: {
     fontSize: 17,

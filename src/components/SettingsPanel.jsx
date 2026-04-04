@@ -1,4 +1,6 @@
-import { X, Globe, GraduationCap, Cpu } from 'lucide-react';
+import { useState } from 'react';
+import { Globe, GraduationCap, Cpu, Moon, Sun, Trash2, Info } from 'lucide-react';
+import historyService from '../services/historyService';
 
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'German', 'Portuguese',
@@ -14,20 +16,28 @@ const GRADE_LEVELS = [
   'professional / advanced'
 ];
 
-export default function SettingsPanel({ settings, onChange, connectionStatus, onClose }) {
+export default function SettingsPanel({ settings, onChange, connectionStatus }) {
   const update = (key, value) => onChange({ ...settings, [key]: value });
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  const handleResetData = () => {
+    if (window.confirm('Reset all data? This cannot be undone.')) {
+      historyService.clearHistory();
+      onChange({
+        language: 'English',
+        gradeLevel: 'middle school (ages 11-13)',
+        subject: 'auto-detect',
+      });
+    }
+  };
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.panel} className="slide-up" onClick={e => e.stopPropagation()}>
-        <div style={styles.header}>
-          <h2 style={styles.title}>Settings</h2>
-          <button style={styles.closeBtn} onClick={onClose}>
-            <X size={22} />
-          </button>
-        </div>
+    <div style={styles.container} className="page">
+      <div style={styles.header}>
+        <h1 style={styles.title}>Settings</h1>
+      </div>
 
-        <div style={styles.content}>
+      <div style={styles.content}>
           {/* Language */}
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
@@ -72,6 +82,20 @@ export default function SettingsPanel({ settings, onChange, connectionStatus, on
             </div>
           </div>
 
+          {/* Theme */}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              {isDarkMode ? <Moon size={18} color="var(--primary-light)" /> : <Sun size={18} color="var(--primary-light)" />}
+              <span>Appearance</span>
+            </div>
+            <button
+              style={styles.themeBtn}
+              onClick={() => setIsDarkMode(!isDarkMode)}
+            >
+              {isDarkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
+            </button>
+          </div>
+
           {/* Connection Status */}
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
@@ -99,62 +123,69 @@ export default function SettingsPanel({ settings, onChange, connectionStatus, on
               )}
             </div>
           </div>
-        </div>
 
-        {/* About */}
-        <div style={styles.footer}>
-          <p style={styles.footerText}>
-            LensLearn v1.0 - Powered by Gemma 4
-          </p>
-          <p style={styles.footerSubtext}>
-            Point your lens. Learn anything.
-          </p>
-        </div>
+          {/* Data Management */}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <Trash2 size={18} color="var(--primary-light)" />
+              <span>Data</span>
+            </div>
+            <button
+              style={styles.dangerBtn}
+              onClick={handleResetData}
+            >
+              <Trash2 size={16} />
+              Clear All Data
+            </button>
+          </div>
+
+          {/* About */}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <Info size={18} color="var(--primary-light)" />
+              <span>About</span>
+            </div>
+            <div style={styles.aboutCard}>
+              <p style={styles.aboutText}>
+                <strong>LensLearn v1.0</strong>
+              </p>
+              <p style={styles.aboutSubtext}>
+                Powered by Gemma 4
+              </p>
+              <p style={styles.aboutTagline}>
+                Point your lens. Learn anything.
+              </p>
+            </div>
+          </div>
       </div>
+
+      {/* Bottom Padding */}
+      <div style={styles.bottomPadding} />
     </div>
   );
 }
 
 const styles = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.6)',
-    zIndex: 100,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  panel: {
-    width: '100%',
-    maxWidth: 480,
-    maxHeight: '85vh',
-    background: 'var(--bg-dark)',
-    borderRadius: '20px 20px 0 0',
+  container: {
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden',
+    maxWidth: 480,
+    margin: '0 auto',
   },
   header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '20px 20px 16px',
+    padding: '24px 16px 16px',
     borderBottom: '1px solid var(--border)',
+    background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(168,85,247,0.05))',
   },
-  title: { fontSize: 20, fontWeight: 700 },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    padding: 4,
-    display: 'flex',
+  title: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
   },
   content: {
     flex: 1,
     overflowY: 'auto',
-    padding: '16px 20px',
+    padding: '16px 16px 100px',
     display: 'flex',
     flexDirection: 'column',
     gap: 24,
@@ -243,11 +274,58 @@ const styles = {
     fontFamily: 'monospace',
     marginTop: 4,
   },
-  footer: {
-    padding: '16px 20px 24px',
-    borderTop: '1px solid var(--border)',
+  themeBtn: {
+    width: '100%',
+    padding: '12px 16px',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    color: 'var(--text-primary)',
+    fontSize: 14,
+    cursor: 'pointer',
+    fontWeight: 500,
+    transition: 'all var(--transition)',
+  },
+  dangerBtn: {
+    width: '100%',
+    padding: '12px 16px',
+    background: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: 'var(--radius)',
+    color: '#ef4444',
+    fontSize: 14,
+    cursor: 'pointer',
+    fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    transition: 'all var(--transition)',
+  },
+  aboutCard: {
+    padding: 16,
+    background: 'var(--bg-card)',
+    borderRadius: 'var(--radius)',
+    border: '1px solid var(--border)',
     textAlign: 'center',
   },
-  footerText: { fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 },
-  footerSubtext: { fontSize: 12, color: 'var(--text-muted)', marginTop: 4 },
+  aboutText: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    marginBottom: 4,
+  },
+  aboutSubtext: {
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    marginBottom: 8,
+  },
+  aboutTagline: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+  },
+  bottomPadding: {
+    height: 20,
+  },
 };

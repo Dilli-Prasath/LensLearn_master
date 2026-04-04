@@ -1,15 +1,12 @@
-import { useState } from 'react';
-import { Settings, Wifi, WifiOff, BookOpen } from 'lucide-react';
+import { Wifi, WifiOff, BookOpen } from 'lucide-react';
 
-export default function Header({ connectionStatus, onSettingsClick }) {
+export default function Header({ connectionStatus, onHomeClick }) {
   return (
     <header style={styles.header}>
-      <div style={styles.left}>
-        <div style={styles.logo}>
-          <BookOpen size={22} color="var(--primary-light)" />
-          <span style={styles.logoText}>LensLearn</span>
-        </div>
-      </div>
+      <button style={styles.logo} onClick={onHomeClick} title="Home">
+        <BookOpen size={22} color="var(--primary-light)" />
+        <span style={styles.logoText}>LensLearn</span>
+      </button>
       <div style={styles.right}>
         <div style={styles.status}>
           {connectionStatus?.connected ? (
@@ -24,9 +21,6 @@ export default function Header({ connectionStatus, onSettingsClick }) {
             </div>
           )}
         </div>
-        <button style={styles.settingsBtn} onClick={onSettingsClick} aria-label="Settings">
-          <Settings size={20} color="var(--text-secondary)" />
-        </button>
       </div>
     </header>
   );
@@ -43,8 +37,16 @@ const styles = {
     flexShrink: 0,
     zIndex: 10,
   },
-  left: { display: 'flex', alignItems: 'center', gap: 12 },
-  logo: { display: 'flex', alignItems: 'center', gap: 8 },
+  logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
+    color: 'inherit',
+  },
   logoText: {
     fontSize: 18,
     fontWeight: 700,
@@ -62,14 +64,5 @@ const styles = {
     borderRadius: 20,
     background: 'var(--bg-card)',
     border: '1px solid var(--border)',
-  },
-  settingsBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 8,
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
   },
 };

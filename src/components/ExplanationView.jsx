@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
   Volume2, VolumeX, ChevronDown, ChevronUp,
-  MessageCircle, Brain, Send, Sparkles, Copy, Check
+  MessageCircle, Brain, Send, Sparkles, Copy, Check, Share2
 } from 'lucide-react';
 import speechService from '../services/speechService';
+import historyService from '../services/historyService';
 
 export default function ExplanationView({
   explanation,
@@ -15,6 +16,7 @@ export default function ExplanationView({
   onSimplify,
   onAskFollowUp,
   quizLoading,
+  onSaveSession,
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showImage, setShowImage] = useState(false);
@@ -22,13 +24,23 @@ export default function ExplanationView({
   const [followUpAnswer, setFollowUpAnswer] = useState('');
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const contentRef = useRef(null);
+  const savedRef = useRef(false);
 
   useEffect(() => {
     if (contentRef.current && isStreaming) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [explanation, isStreaming]);
+
+  // Auto-save session when explanation is complete
+  useEffect(() => {
+    if (!isStreaming && explanation && !savedRef.current && imagePreview) {
+      savedRef.current = true;
+      onSaveSession?.();
+    }
+  }, [isStreaming, explanation, imagePreview, onSaveSession]);
 
   const toggleSpeech = () => {
     if (isSpeaking) {
@@ -47,6 +59,23 @@ export default function ExplanationView({
     await navigator.clipboard.writeText(explanation);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'LensLearn Explanation',
+          text: explanation,
+        });
+      } catch (err) {
+        console.log('Share failed:', err);
+      }
+    } else {
+      handleCopy();
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    }
   };
 
   const handleFollowUp = async () => {
@@ -88,6 +117,9 @@ export default function ExplanationView({
             </button>
             <button style={styles.iconBtn} onClick={handleCopy} title="Copy">
               {copied ? <Check size={18} color="var(--success)" /> : <Copy size={18} color="var(--text-secondary)" />}
+            </button>
+            <button style={styles.iconBtn} onClick={handleShare} title="Share">
+              {shared ? <Check size={18} color="var(--success)" /> : <Share2 size={18} color="var(--text-secondary)" />}
             </button>
           </div>
         </div>

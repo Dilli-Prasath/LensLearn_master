@@ -26,21 +26,32 @@ class SpeechService {
   /**
    * Find the best voice for a given language
    */
-  _getVoice(lang = 'en') {
+  getVoice(lang = 'English') {
     const langMap = {
-      'English': 'en', 'Tamil': 'ta', 'Hindi': 'hi',
-      'Spanish': 'es', 'French': 'fr', 'German': 'de',
-      'Portuguese': 'pt', 'Arabic': 'ar', 'Bengali': 'bn',
-      'Chinese': 'zh', 'Japanese': 'ja', 'Korean': 'ko',
+      'English': 'en-US', 'Tamil': 'ta-IN', 'Hindi': 'hi-IN',
+      'Spanish': 'es-ES', 'French': 'fr-FR', 'German': 'de-DE',
+      'Portuguese': 'pt-BR', 'Arabic': 'ar-SA', 'Bengali': 'bn-IN',
+      'Chinese': 'zh-CN', 'Japanese': 'ja-JP', 'Korean': 'ko-KR',
+      'Indonesian': 'id-ID', 'Swahili': 'sw-KE', 'Russian': 'ru-RU',
     };
 
-    const code = langMap[lang] || lang;
+    const targetCode = langMap[lang] || 'en-US';
+    const langPrefix = targetCode.split('-')[0];
 
-    // Prefer Google voices, then any matching voice
-    const googleVoice = this.voices.find(v => v.lang.startsWith(code) && v.name.includes('Google'));
-    if (googleVoice) return googleVoice;
+    // Try exact match first
+    let voice = this.voices.find(v => v.lang === targetCode);
+    if (voice) return voice;
 
-    return this.voices.find(v => v.lang.startsWith(code)) || this.voices[0];
+    // Then try language prefix match
+    voice = this.voices.find(v => v.lang.startsWith(langPrefix));
+    if (voice) return voice;
+
+    // Fallback to first available voice
+    return this.voices[0] || null;
+  }
+
+  _getVoice(lang = 'en') {
+    return this.getVoice(typeof lang === 'string' && lang.length > 2 ? lang : 'English');
   }
 
   /**
