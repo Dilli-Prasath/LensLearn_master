@@ -4,7 +4,8 @@ import {
   Calendar, TrendingUp, BookOpen, Clock,
   ChevronRight, BarChart3, Flame, Sparkles,
 } from 'lucide-react';
-import historyService from '../services/historyService';
+import { useNavigate } from 'react-router-dom';
+import { useHistoryStore } from '../store';
 import exportService from '../services/exportService';
 
 /* ─── tiny helpers ─── */
@@ -21,8 +22,12 @@ const glassBase = {
   boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
 };
 
-export default function HistoryPage({ onViewSession, onDeleteAll }) {
-  const [sessions, setSessions] = useState(historyService.getSessions());
+export default function HistoryPage() {
+  const navigate = useNavigate();
+  const sessions = useHistoryStore((s) => s.sessions);
+  const deleteSession = useHistoryStore((s) => s.deleteSession);
+  const toggleBookmark = useHistoryStore((s) => s.toggleBookmark);
+  const clearHistory = useHistoryStore((s) => s.clearHistory);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
@@ -87,14 +92,15 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
   );
 
   /* ── Handlers ── */
-  const handleDelete = (id, e) => { e.stopPropagation(); historyService.deleteSession(id); setSessions(historyService.getSessions()); };
-  const handleToggleBookmark = (id, e) => { e.stopPropagation(); historyService.toggleBookmark(id); setSessions(historyService.getSessions()); };
+  const handleDelete = (id, e) => { e.stopPropagation(); deleteSession(id); };
+  const handleToggleBookmark = (id, e) => { e.stopPropagation(); toggleBookmark(id); };
   const handleClearAll = () => {
     if (window.confirm('Are you sure? This will delete all your scan history.')) {
-      historyService.clearHistory(); setSessions([]); onDeleteAll?.();
+      clearHistory(); navigate('/');
     }
   };
   const handleExportAll = () => exportService.exportAllNotes(sessions);
+  const handleViewSession = (session) => navigate(`/history/${session.id}`);
 
   /* ── Empty state ── */
   if (sessions.length === 0) {
@@ -266,7 +272,7 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
           <Glass
             key={session.id}
             style={styles.sessionCard}
-            onClick={() => onViewSession(session)}
+            onClick={() => handleViewSession(session)}
             className="hover-lift"
           >
             {/* Thumbnail */}

@@ -19,7 +19,8 @@ import {
   Award,
   BarChart3,
 } from 'lucide-react';
-import historyService from '../services/historyService';
+import { useNavigate } from 'react-router-dom';
+import { useHistoryStore } from '../store';
 
 const SUBJECT_CONFIG = {
   math: { color: '#6366f1', icon: Calculator, gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))' },
@@ -44,10 +45,12 @@ const EXPLORE_SUBJECTS = [
   { name: 'Literature', icon: BookMarked, color: '#d946ef', tip: 'Scan poems, passages, or book excerpts' },
 ];
 
-export default function SubjectsPage({ onScanClick }) {
+export default function SubjectsPage() {
+  const navigate = useNavigate();
+  const onScanClick = () => navigate('/scan');
   const [expandedSubject, setExpandedSubject] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const sessions = historyService.getSessions();
+  const sessions = useHistoryStore((s) => s.sessions);
 
   const { subjectCards, totalScans, avgProgress, topSubject } = useMemo(() => {
     const groupedBySubject = {};

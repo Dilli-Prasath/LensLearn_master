@@ -1,6 +1,7 @@
 import { TrendingUp, BookOpen, Languages, Flame, ArrowRight, Target, Trophy, Sparkles, Clock, Zap, Star, ChevronRight, Layers } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import historyService from '../services/historyService';
+import { useNavigate } from 'react-router-dom';
+import { useHistoryStore, useSettingsStore } from '../store';
 
 const QUOTES = [
   'Every expert was once a beginner.',
@@ -35,10 +36,18 @@ const ACHIEVEMENTS = [
   { id: 'quiz_master', icon: '🧠', title: 'Quiz Master', desc: 'Score 80%+ on a quiz', threshold: 80 },
 ];
 
-export default function HomePage({ onScanClick, onHistoryClick, onQuizClick, settings = {} }) {
+export default function HomePage() {
+  const navigate = useNavigate();
+  const settings = useSettingsStore();
+  const getStats = useHistoryStore((s) => s.getStats);
+  const getRecent = useHistoryStore((s) => s.getRecent);
   const DAILY_GOAL = settings.dailyGoal || 3;
-  const stats = historyService.getStats();
-  const recentSessions = historyService.getSessions().slice(0, 3);
+  const stats = getStats();
+  const recentSessions = getRecent(3);
+
+  // Router-based navigation callbacks
+  const onScanClick = () => navigate('/scan');
+  const onHistoryClick = () => navigate('/history');
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
   useEffect(() => {
@@ -57,12 +66,7 @@ export default function HomePage({ onScanClick, onHistoryClick, onQuizClick, set
 
   const quote = useMemo(() => QUOTES[Math.floor(Math.random() * QUOTES.length)], []);
 
-  const todayScans = useMemo(() => {
-    const today = new Date().toDateString();
-    return historyService.getSessions().filter(s =>
-      new Date(s.timestamp).toDateString() === today
-    ).length;
-  }, []);
+  const todayScans = stats.todayScans;
   const dailyProgress = Math.min(todayScans / DAILY_GOAL, 1);
 
   const earnedAchievements = useMemo(() => {
