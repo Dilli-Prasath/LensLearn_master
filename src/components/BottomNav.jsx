@@ -10,19 +10,22 @@ export default function BottomNav({ activeTab, onTabChange }) {
   ];
 
   return (
-    <nav style={styles.nav} className="safe-area-padding">
+    <nav style={styles.nav}>
+      {/* Gradient top border */}
+      <div style={styles.topBorder} />
+
       <div style={styles.navInner}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           const isScan = tab.id === 'scan';
+
           return (
             <button
               key={tab.id}
               style={{
                 ...styles.navItem,
                 ...(isActive && !isScan ? styles.navItemActive : {}),
-                ...(isScan ? styles.scanNavItem : {}),
               }}
               onClick={() => onTabChange(tab.id)}
               aria-label={tab.label}
@@ -30,25 +33,30 @@ export default function BottomNav({ activeTab, onTabChange }) {
             >
               {isScan ? (
                 <div style={{
-                  ...styles.scanIconBg,
-                  ...(isActive ? styles.scanIconBgActive : {}),
+                  ...styles.scanBtn,
+                  ...(isActive ? styles.scanBtnActive : {}),
                 }}>
                   <Icon size={20} />
+                  {/* Animated ring around scan when active */}
+                  {isActive && <div style={styles.scanRing} className="orbit-ring" />}
                 </div>
               ) : (
-                <Icon
-                  size={21}
-                  style={{
-                    transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    ...(isActive ? { transform: 'scale(1.1)' } : {}),
-                  }}
-                />
+                <div style={styles.iconWrap}>
+                  <Icon
+                    size={20}
+                    style={{
+                      transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      ...(isActive ? { transform: 'scale(1.1)' } : {}),
+                    }}
+                  />
+                  {/* Active glow dot */}
+                  {isActive && <div style={styles.glowDot} className="pop-in" />}
+                </div>
               )}
               <span style={{
                 ...styles.navLabel,
-                ...(isScan && isActive ? { color: 'var(--primary-light)' } : {}),
+                ...(isActive ? styles.navLabelActive : {}),
               }}>{tab.label}</span>
-              {isActive && <div style={styles.activeIndicator} className="scale-in" />}
             </button>
           );
         })}
@@ -63,33 +71,38 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    background: 'rgba(15, 23, 42, 0.95)',
-    backdropFilter: 'blur(12px)',
-    borderTop: '1px solid var(--border)',
+    background: 'rgba(15, 23, 42, 0.92)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
     zIndex: 50,
-    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.35)',
+    boxShadow: '0 -2px 20px rgba(0, 0, 0, 0.3)',
+  },
+  topBorder: {
+    height: 1,
+    background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.3), rgba(168,85,247,0.2), transparent)',
   },
   navInner: {
     display: 'flex',
     justifyContent: 'space-around',
     alignItems: 'center',
     height: 64,
-    maxWidth: 960,
+    maxWidth: 'var(--layout-max-width, 1200px)',
     margin: '0 auto',
+    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
   },
   navItem: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
     padding: '6px 10px',
     background: 'none',
     border: 'none',
     color: 'var(--text-muted)',
     cursor: 'pointer',
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 500,
     transition: 'color 0.2s',
     position: 'relative',
     flex: 1,
@@ -97,40 +110,55 @@ const styles = {
   navItemActive: {
     color: 'var(--primary-light)',
   },
-  scanNavItem: {
-    color: 'var(--text-muted)',
-  },
-  // Scan icon — filled rounded square background, stays inside the nav
-  scanIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    background: 'var(--bg-card)',
-    border: '1.5px solid var(--border)',
+  iconWrap: {
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-    color: 'var(--text-secondary)',
   },
-  scanIconBgActive: {
-    background: 'var(--primary)',
+  glowDot: {
+    position: 'absolute',
+    bottom: -6,
+    width: 4,
+    height: 4,
+    borderRadius: '50%',
+    background: 'var(--primary-light)',
+    boxShadow: '0 0 8px rgba(99,102,241,0.6)',
+  },
+  scanBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    background: 'rgba(30,41,59,0.6)',
+    border: '1.5px solid rgba(99,102,241,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    color: 'var(--text-secondary)',
+    position: 'relative',
+  },
+  scanBtnActive: {
+    background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
     borderColor: 'var(--primary)',
     color: 'white',
-    transform: 'scale(1.05)',
-    boxShadow: '0 2px 12px rgba(99,102,241,0.4)',
+    transform: 'scale(1.08)',
+    boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
+  },
+  scanRing: {
+    position: 'absolute',
+    inset: -5,
+    border: '1.5px dashed rgba(99,102,241,0.3)',
+    borderRadius: 17,
+    pointerEvents: 'none',
   },
   navLabel: {
     fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    fontWeight: 500,
   },
-  activeIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    width: 16,
-    height: 3,
-    borderRadius: 2,
-    background: 'var(--primary-light)',
+  navLabelActive: {
+    fontWeight: 700,
+    color: 'var(--primary-light)',
   },
 };

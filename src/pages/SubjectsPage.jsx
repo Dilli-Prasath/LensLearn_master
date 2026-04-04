@@ -111,7 +111,7 @@ export default function SubjectsPage({ onScanClick }) {
               <BookOpen size={18} color="var(--primary-light)" />
               <h3 style={styles.sectionTitle}>Subjects to Explore</h3>
             </div>
-            <div style={styles.exploreGrid} className="stagger-children">
+            <div style={styles.exploreGrid} className="responsive-grid-2 stagger-children">
               {EXPLORE_SUBJECTS.map((sub) => {
                 const Icon = sub.icon;
                 return (
@@ -131,14 +131,14 @@ export default function SubjectsPage({ onScanClick }) {
         <div className="fade-in">
           {/* Header with stats */}
           <div style={styles.header} className="slide-in-left">
-            <h1 style={styles.title}>Your Subjects</h1>
+            <h1 style={styles.title} className="gradient-text">Your Subjects</h1>
             <p style={styles.subtitle}>
               {subjectCards.length} subject{subjectCards.length !== 1 ? 's' : ''} studied
             </p>
           </div>
 
           {/* Stats overview */}
-          <div style={styles.statsRow} className="stagger-children">
+          <div style={styles.statsRow} className="responsive-grid-3 stagger-children">
             <div style={styles.statCard} className="hover-lift">
               <BarChart3 size={18} color="var(--primary-light)" />
               <div style={styles.statValue}>{totalScans}</div>
@@ -376,8 +376,8 @@ function normalizeSubject(subject) {
 
 const styles = {
   container: {
-    padding: '24px 16px 100px',
-    maxWidth: 960,
+    padding: '24px 24px 100px',
+    maxWidth: 'var(--layout-max-width, 1200px)',
     margin: '0 auto',
   },
   header: { marginBottom: 20, paddingTop: 8 },
@@ -386,21 +386,20 @@ const styles = {
 
   // Stats row
   statsRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 10,
     marginBottom: 16,
   },
   statCard: {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    background: 'rgba(30,41,59,0.5)',
+    backdropFilter: 'blur(16px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
     borderRadius: 'var(--radius)',
-    padding: '12px 8px',
+    padding: '14px 8px',
     textAlign: 'center',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   statValue: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' },
   statLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 },
@@ -453,8 +452,10 @@ const styles = {
     marginBottom: 24,
   },
   gridCard: {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    background: 'rgba(30,41,59,0.5)',
+    backdropFilter: 'blur(16px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
     borderRadius: 'var(--radius)',
     padding: 16,
     textAlign: 'center',
@@ -543,13 +544,13 @@ const styles = {
 
   // Explore grid
   exploreGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 10,
+    /* responsive-grid-2 class handles the grid */
   },
   exploreCard: {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    background: 'rgba(30,41,59,0.5)',
+    backdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
     borderRadius: 'var(--radius)',
     padding: 16,
     textAlign: 'center',

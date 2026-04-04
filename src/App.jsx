@@ -6,6 +6,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import ollamaService from './services/ollamaService';
 import historyService from './services/historyService';
 import { device, adaptiveSettings } from './utils/performance';
+import { applyCustomization } from './utils/themes';
 
 // Lazy-load all heavy views — only loaded when user navigates to them
 const CameraCapture = lazy(() => import('./components/CameraCapture'));
@@ -100,6 +101,17 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // Apply theme & customization
+  useEffect(() => {
+    applyCustomization({
+      theme: settings.theme || 'dark',
+      accentColor: settings.accentColor || 'indigo',
+      font: settings.font || 'inter',
+      borderRadius: settings.borderRadius || 'medium',
+      layoutWidth: settings.layoutWidth || 'wide',
+    });
+  }, [settings.theme, settings.accentColor, settings.font, settings.borderRadius, settings.layoutWidth]);
 
   // Apply accessibility settings
   useEffect(() => {
@@ -355,6 +367,7 @@ export default function App() {
               onScanClick={() => setActiveTab('scan')}
               onHistoryClick={() => setActiveTab('history')}
               onQuizClick={handleGenerateQuiz}
+              settings={settings}
             />
           )}
 

@@ -131,7 +131,7 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
             <h3 style={styles.sectionTitle}>Study Insights</h3>
           </div>
 
-          <div style={styles.insightsGrid} className="stagger-children">
+          <div style={styles.insightsGrid} className="responsive-grid-3 stagger-children">
             <div style={styles.insightCard} className="hover-lift">
               <div style={{ ...styles.insightIcon, background: 'rgba(245,158,11,0.15)' }}>
                 <TrendingUp size={18} color="#f59e0b" />
@@ -286,7 +286,7 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
 }
 
 const styles = {
-  container: { padding: '16px 16px 100px', maxWidth: 960, margin: '0 auto' },
+  container: { padding: '16px 24px 100px', maxWidth: 'var(--layout-max-width, 1200px)', margin: '0 auto', position: 'relative' },
 
   // Section header
   sectionHeader: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
@@ -294,19 +294,24 @@ const styles = {
 
   // Insights
   insightsSection: { marginBottom: 20 },
-  insightsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 },
+  insightsGrid: { marginBottom: 14 },
   insightCard: {
-    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-    padding: '12px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+    background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(16px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
+    borderRadius: 'var(--radius)',
+    padding: '14px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
   },
-  insightIcon: { width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  insightValue: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' },
-  insightLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 },
+  insightIcon: { width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  insightValue: { fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5 },
+  insightLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 },
 
   // Week chart
   weekChart: {
-    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+    background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--radius)',
     padding: 14,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
   },
   weekChartLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600, marginBottom: 10 },
   weekBars: { display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 48, gap: 4 },
@@ -341,8 +346,9 @@ const styles = {
 
   // Search
   searchContainer: {
-    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 10,
+    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+    background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--radius)', marginBottom: 10,
   },
   searchInput: { flex: 1, background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, outline: 'none' },
   clearSearch: {
@@ -374,9 +380,11 @@ const styles = {
   // Empty
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', textAlign: 'center' },
   emptyIconWrap: {
-    width: 80, height: 80, borderRadius: '50%',
+    width: 88, height: 88, borderRadius: '50%',
     background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05))',
+    border: '1px solid rgba(99,102,241,0.15)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    boxShadow: '0 8px 32px rgba(99,102,241,0.15)',
   },
   emptyTitle: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 },
   emptyText: { fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 280 },
