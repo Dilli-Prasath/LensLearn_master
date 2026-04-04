@@ -3,6 +3,17 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'ollama-sdk': ['ollama'],
+          'react-vendor': ['react', 'react-dom'],
+          'markdown': ['react-markdown'],
+        }
+      }
+    }
+  },
   plugins: [
     react(),
     VitePWA({

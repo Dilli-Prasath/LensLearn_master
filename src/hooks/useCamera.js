@@ -1,30 +1,40 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import documentService from '../services/documentService';
+import { adaptiveSettings, compressImage } from '../utils/performance';
 
 /**
  * Custom hook for camera capture functionality
- * Supports both live camera and file upload
+ * Supports both live camera and file upload, plus document processing
+ * Optimized for low-end devices with adaptive resolution and compression
  */
 export function useCamera() {
   const [capturedImage, setCapturedImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
+  const [documentContent, setDocumentContent] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState('environment');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const canvasRef = useRef(document.createElement('canvas'));
+  const canvasRef = useRef(null); // Lazy-create canvas only when needed
+
+  const getCanvas = useCallback(() => {
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement('canvas');
+    }
+    return canvasRef.current;
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
+      const camConstraints = adaptiveSettings.cameraConstraints;
       const constraints = {
         video: {
           facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          ...camConstraints,
         }
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-      // Set active first so video element mounts, then connect in useEffect
       setCameraActive(true);
       return true;
     } catch (err) {
@@ -54,46 +64,88 @@ export function useCamera() {
     setCameraActive(false);
   }, []);
 
-  const capturePhoto = useCallback(() => {
+  const capturePhoto = useCallback(async () => {
     if (!videoRef.current) return null;
 
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const canvas = getCanvas();
 
+    // Adaptive: limit capture resolution for low-end devices
+    const maxDim = adaptiveSettings.maxImageDimension;
+    let w = video.videoWidth;
+    let h = video.videoHeight;
+
+    if (w > maxDim || h > maxDim) {
+      const ratio = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, w, h);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const quality = adaptiveSettings.imageQuality;
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
     const base64 = dataUrl.split(',')[1];
+
+    // Free canvas memory
+    canvas.width = 0;
+    canvas.height = 0;
 
     setCapturedImage(dataUrl);
     setImageBase64(base64);
     stopCamera();
 
     return { dataUrl, base64 };
-  }, [stopCamera]);
+  }, [stopCamera, getCanvas]);
 
-  const handleFileUpload = useCallback((file) => {
+  const handleFileUpload = useCallback(async (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const dataUrl = e.target.result;
-        const base64 = dataUrl.split(',')[1];
-        setCapturedImage(dataUrl);
-        setImageBase64(base64);
-        resolve({ dataUrl, base64 });
+
+        // Compress uploaded image for low-end devices
+        const compressed = await compressImage(dataUrl);
+        setCapturedImage(compressed.dataUrl);
+        setImageBase64(compressed.base64);
+        resolve(compressed);
       };
       reader.readAsDataURL(file);
     });
+  }, []);
+
+  const handleDocumentUpload = useCallback(async (file) => {
+    try {
+      const result = await documentService.processFile(file);
+
+      if (result.type === 'image') {
+        const base64 = result.images[0];
+        const dataUrl = result.preview;
+        // Compress
+        const compressed = await compressImage(dataUrl);
+        setCapturedImage(compressed.dataUrl);
+        setImageBase64(compressed.base64);
+        setDocumentContent(null);
+      } else {
+        setDocumentContent(result);
+        setCapturedImage(result.preview || null);
+        setImageBase64(null);
+      }
+
+      return result;
+    } catch (err) {
+      console.error('Document upload error:', err);
+      throw err;
+    }
   }, []);
 
   const flipCamera = useCallback(() => {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
     if (cameraActive) {
       stopCamera();
-      // Will restart with new facing mode
       setTimeout(startCamera, 100);
     }
   }, [cameraActive, stopCamera, startCamera]);
@@ -101,25 +153,39 @@ export function useCamera() {
   const clearImage = useCallback(() => {
     setCapturedImage(null);
     setImageBase64(null);
+    // Free canvas memory
+    if (canvasRef.current) {
+      canvasRef.current.width = 0;
+      canvasRef.current.height = 0;
+    }
   }, []);
 
-  const setCroppedImage = useCallback((dataUrl, base64) => {
-    setCapturedImage(dataUrl);
-    setImageBase64(base64);
+  const clearDocument = useCallback(() => {
+    setDocumentContent(null);
+  }, []);
+
+  const setCroppedImage = useCallback(async (dataUrl, base64) => {
+    // Compress cropped image too
+    const compressed = await compressImage(dataUrl);
+    setCapturedImage(compressed.dataUrl);
+    setImageBase64(compressed.base64);
   }, []);
 
   return {
     videoRef,
     capturedImage,
     imageBase64,
+    documentContent,
     cameraActive,
     facingMode,
     startCamera,
     stopCamera,
     capturePhoto,
     handleFileUpload,
+    handleDocumentUpload,
     flipCamera,
     clearImage,
+    clearDocument,
     setCroppedImage
   };
 }

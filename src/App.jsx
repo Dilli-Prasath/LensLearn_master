@@ -1,20 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense, memo } from 'react';
 import Header from './components/Header';
-import CameraCapture from './components/CameraCapture';
-import ExplanationView from './components/ExplanationView';
-import QuizView from './components/QuizView';
-import FlashcardView from './components/FlashcardView';
-import SettingsPanel from './components/SettingsPanel';
 import BottomNav from './components/BottomNav';
-import Onboarding from './components/Onboarding';
-import InstallPrompt from './components/InstallPrompt';
-import HomePage from './pages/HomePage';
-import HistoryPage from './pages/HistoryPage';
-import SubjectsPage from './pages/SubjectsPage';
 import { useCamera } from './hooks/useCamera';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import ollamaService from './services/ollamaService';
 import historyService from './services/historyService';
+import { device, adaptiveSettings } from './utils/performance';
+
+// Lazy-load all heavy views — only loaded when user navigates to them
+const CameraCapture = lazy(() => import('./components/CameraCapture'));
+const ExplanationView = lazy(() => import('./components/ExplanationView'));
+const QuizView = lazy(() => import('./components/QuizView'));
+const FlashcardView = lazy(() => import('./components/FlashcardView'));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
+const Onboarding = lazy(() => import('./components/Onboarding'));
+const InstallPrompt = lazy(() => import('./components/InstallPrompt'));
+const HomePage = lazy(() => import('./pages/HomePage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const SubjectsPage = lazy(() => import('./pages/SubjectsPage'));
 
 const DEFAULT_SETTINGS = {
   language: 'English',
@@ -25,6 +28,32 @@ const DEFAULT_SETTINGS = {
   reduceAnimations: false,
 };
 
+// Loading fallback with animated dots
+const LoadingFallback = memo(() => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 48, flexDirection: 'column' }}>
+    <div style={{ display: 'flex', gap: 6 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary-light)', animation: 'dotBounce 1.2s ease-in-out infinite', animationDelay: '0ms' }} />
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary-light)', animation: 'dotBounce 1.2s ease-in-out infinite', animationDelay: '150ms' }} />
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary-light)', animation: 'dotBounce 1.2s ease-in-out infinite', animationDelay: '300ms' }} />
+    </div>
+    <span style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Loading...</span>
+  </div>
+));
+LoadingFallback.displayName = 'LoadingFallback';
+
+// Memoized back button to avoid re-renders
+const BackButton = memo(({ onClick, label = 'Back' }) => (
+  <div style={styles.topBar}>
+    <button className="btn btn-secondary" onClick={onClick} style={{ fontSize: 13 }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+      {label}
+    </button>
+  </div>
+));
+BackButton.displayName = 'BackButton';
+
 export default function App() {
   const camera = useCamera();
   const [settings, setSettings] = useLocalStorage('lenslearn-settings', DEFAULT_SETTINGS);
@@ -34,8 +63,8 @@ export default function App() {
   });
 
   // Tab navigation
-  const [activeTab, setActiveTab] = useState('home'); // home | scan | subjects | history | settings
-  const [view, setView] = useState('main'); // main | explanation | quiz | flashcards | viewHistory
+  const [activeTab, setActiveTab] = useState('home');
+  const [view, setView] = useState('main');
 
   // App state
   const [explanation, setExplanation] = useState('');
@@ -54,8 +83,14 @@ export default function App() {
       setConnectionStatus(status);
     };
     check();
-    const interval = setInterval(check, 30000);
+    // Low-end: check less often (60s vs 30s)
+    const interval = setInterval(check, device.tier === 'low' ? 60000 : 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  const handleReconnect = useCallback(async () => {
+    const status = await ollamaService.checkConnection();
+    setConnectionStatus(status);
   }, []);
 
   // Stop camera when switching away from scan tab
@@ -66,24 +101,38 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Apply accessibility settings to document.body
+  // Apply accessibility settings
   useEffect(() => {
     document.body.dataset.textSize = settings.textSize || 'medium';
     document.body.dataset.highContrast = settings.highContrast ? 'true' : 'false';
     document.body.dataset.reduceAnimations = settings.reduceAnimations ? 'true' : 'false';
+    // Also disable animations on low-end
+    if (!adaptiveSettings.enableAnimations) {
+      document.body.dataset.reduceAnimations = 'true';
+    }
   }, [settings.textSize, settings.highContrast, settings.reduceAnimations]);
 
   // Main explain function
   const handleExplain = useCallback(async () => {
-    if (!camera.imageBase64) return;
+    if (!camera.imageBase64 && !camera.documentContent) return;
+
     setIsProcessing(true);
     setIsStreaming(true);
     setExplanation('');
     setView('explanation');
 
     try {
-      setExplanation('*Analyzing your image... This may take 30-60 seconds for image processing.*');
-      await ollamaService.explainImage(camera.imageBase64, {
+      let explainContent;
+
+      if (camera.documentContent) {
+        setExplanation('*Analyzing your document...*');
+        explainContent = camera.documentContent;
+      } else {
+        setExplanation('*Analyzing your image...*');
+        explainContent = { images: [camera.imageBase64] };
+      }
+
+      await ollamaService.explain(explainContent, {
         language: settings.language,
         gradeLevel: settings.gradeLevel,
         subject: settings.subject,
@@ -93,14 +142,48 @@ export default function App() {
       });
     } catch (err) {
       setExplanation(
-        `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running on your computer\n2. Run: \`ollama pull gemma3:4b\`\n3. Start Ollama: \`OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve\`\n4. Start dev server with: \`NO_PROXY=127.0.0.1,localhost npx vite --host\`\n\n*Error: ${err.message}*`
+        `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running on your computer\n2. Run: \`ollama pull gemma4:e4b\`\n3. Start Ollama: \`OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve\`\n4. Start dev server with: \`NO_PROXY=127.0.0.1,localhost npx vite --host\`\n\n*Error: ${err.message}*`
       );
     }
     setIsStreaming(false);
     setIsProcessing(false);
-  }, [camera.imageBase64, settings]);
+  }, [camera.imageBase64, camera.documentContent, settings]);
 
-  // Save session to history
+  const handleRetry = useCallback(() => {
+    handleExplain();
+  }, [handleExplain]);
+
+  const handleAbort = useCallback(() => {
+    ollamaService.abort();
+    setIsStreaming(false);
+    setIsProcessing(false);
+  }, []);
+
+  const handleDeepDive = useCallback(async () => {
+    setIsStreaming(true);
+    setExplanation('');
+    try {
+      await ollamaService.deepDive(explanation, {
+        language: settings.language,
+        onStream: (fullText) => setExplanation(fullText)
+      });
+    } catch (err) {
+      console.error('Deep dive failed:', err);
+    }
+    setIsStreaming(false);
+  }, [explanation, settings.language]);
+
+  const handleExtractKeyTerms = useCallback(async () => {
+    try {
+      return await ollamaService.extractKeyTerms(explanation, {
+        language: settings.language
+      });
+    } catch (err) {
+      console.error('Extract key terms failed:', err);
+      return { terms: [] };
+    }
+  }, [explanation, settings.language]);
+
   const handleSaveSession = useCallback(() => {
     if (camera.capturedImage && explanation) {
       historyService.saveSession(
@@ -113,7 +196,6 @@ export default function App() {
     }
   }, [camera.capturedImage, explanation, settings, quiz]);
 
-  // Generate quiz
   const handleGenerateQuiz = useCallback(async () => {
     setQuizLoading(true);
     try {
@@ -132,7 +214,6 @@ export default function App() {
     setQuizLoading(false);
   }, [explanation, settings.language]);
 
-  // Generate flashcards
   const handleGenerateFlashcards = useCallback(async () => {
     setFlashcardsLoading(true);
     try {
@@ -149,7 +230,6 @@ export default function App() {
     setFlashcardsLoading(false);
   }, [explanation, settings.language]);
 
-  // Simplify explanation
   const handleSimplify = useCallback(async () => {
     setIsStreaming(true);
     setExplanation('');
@@ -165,7 +245,6 @@ export default function App() {
     setIsStreaming(false);
   }, [explanation, settings.language]);
 
-  // Handle language change from explanation view — re-translate content
   const handleLanguageChange = useCallback(async (newLang) => {
     setSettings(prev => ({ ...prev, language: newLang }));
     if (explanation && newLang !== settings.language) {
@@ -179,55 +258,55 @@ export default function App() {
         });
       } catch (err) {
         console.error('Translation failed:', err);
-        setExplanation(originalExplanation); // Restore original on error
+        setExplanation(originalExplanation);
       }
       setIsStreaming(false);
     }
   }, [explanation, settings.language, setSettings]);
 
-  // Follow-up question
   const handleFollowUp = useCallback(async (question) => {
     return ollamaService.askFollowUp(explanation, question, {
       language: settings.language
     });
   }, [explanation, settings.language]);
 
-  // Handle cropped image
   const handleImageCropped = useCallback((croppedImage) => {
-    // Update the camera's captured image with the cropped version
     const croppedBase64 = croppedImage.split(',')[1];
-    camera.setCroppedImage?.(croppedImage, croppedBase64);
-  }, [camera]);
+    camera.setCroppedImage(croppedImage, croppedBase64);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera.setCroppedImage]);
 
-  // Reset to main view
+  // Reset to main view — also frees memory
   const handleNewCapture = useCallback(() => {
     camera.clearImage();
+    camera.clearDocument();
     setExplanation('');
     setQuiz(null);
     setFlashcards(null);
     setView('main');
     setActiveTab('scan');
-  }, [camera]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera.clearImage, camera.clearDocument]);
 
-  // Navigate to home
   const handleGoHome = useCallback(() => {
     setView('main');
     setActiveTab('home');
     camera.clearImage();
+    camera.clearDocument();
     setExplanation('');
     setQuiz(null);
     setFlashcards(null);
-  }, [camera]);
+    setSelectedHistorySession(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera.clearImage, camera.clearDocument]);
 
-  // View history session
-  const handleViewHistorySession = (session) => {
+  const handleViewHistorySession = useCallback((session) => {
     setSelectedHistorySession(session);
     setExplanation(session.explanation);
     setView('viewHistory');
-  };
+  }, []);
 
-  // Handle tab change
-  const handleTabChange = (tab) => {
+  const handleTabChange = useCallback((tab) => {
     if (tab === 'scan') {
       setView('main');
       setActiveTab('scan');
@@ -244,166 +323,158 @@ export default function App() {
       setView('settings');
       setActiveTab('settings');
     }
-  };
+  }, []);
 
   // Show onboarding
   if (showOnboarding) {
-    return <Onboarding onComplete={() => setShowOnboarding(false)} />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <Onboarding onComplete={() => setShowOnboarding(false)} />
+      </Suspense>
+    );
   }
 
-  // Main app view
   return (
     <>
-      <InstallPrompt />
+      <Suspense fallback={null}>
+        <InstallPrompt />
+      </Suspense>
+
       {view !== 'settings' && (
         <Header
           connectionStatus={connectionStatus}
           onHomeClick={handleGoHome}
+          onReconnect={handleReconnect}
         />
       )}
 
-      <div className="page" style={{ paddingBottom: 80 }}>
-        {view === 'main' && activeTab === 'home' && (
-          <HomePage
-            onScanClick={() => {
-              setActiveTab('scan');
-            }}
-            onHistoryClick={() => {
-              setActiveTab('history');
-            }}
-            onQuizClick={handleGenerateQuiz}
-          />
-        )}
-
-        {view === 'main' && activeTab === 'scan' && (
-          <CameraCapture
-            videoRef={camera.videoRef}
-            capturedImage={camera.capturedImage}
-            cameraActive={camera.cameraActive}
-            onStartCamera={camera.startCamera}
-            onCapturePhoto={camera.capturePhoto}
-            onFileUpload={camera.handleFileUpload}
-            onFlipCamera={camera.flipCamera}
-            onClearImage={camera.clearImage}
-            onExplain={handleExplain}
-            isProcessing={isProcessing}
-            onImageCropped={handleImageCropped}
-            facingMode={camera.facingMode}
-          />
-        )}
-
-        {view === 'main' && activeTab === 'subjects' && (
-          <SubjectsPage onScanClick={() => setActiveTab('scan')} />
-        )}
-
-        {view === 'main' && activeTab === 'history' && (
-          <HistoryPage
-            onViewSession={handleViewHistorySession}
-            onDeleteAll={handleGoHome}
-          />
-        )}
-
-        {view === 'settings' && (
-          <SettingsPanel
-            settings={settings}
-            onChange={setSettings}
-            connectionStatus={connectionStatus}
-          />
-        )}
-
-        {view === 'explanation' && (
-          <>
-            <div style={styles.topBar}>
-              <button className="btn btn-secondary" onClick={handleNewCapture} style={{ fontSize: 13 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-                New Scan
-              </button>
-            </div>
-            <ExplanationView
-              explanation={explanation}
-              isStreaming={isStreaming}
-              imagePreview={camera.capturedImage}
-              language={settings.language}
-              onGenerateQuiz={handleGenerateQuiz}
-              onGenerateFlashcards={handleGenerateFlashcards}
-              onSimplify={handleSimplify}
-              onAskFollowUp={handleFollowUp}
-              quizLoading={quizLoading}
-              flashcardsLoading={flashcardsLoading}
-              onSaveSession={handleSaveSession}
-              onLanguageChange={handleLanguageChange}
+      <div className="page" style={pageStyle}>
+        <Suspense fallback={<LoadingFallback />}>
+          {view === 'main' && activeTab === 'home' && (
+            <HomePage
+              onScanClick={() => setActiveTab('scan')}
+              onHistoryClick={() => setActiveTab('history')}
+              onQuizClick={handleGenerateQuiz}
             />
-          </>
-        )}
+          )}
 
-        {view === 'quiz' && (
-          <>
-            <div style={styles.topBar}>
-              <button className="btn btn-secondary" onClick={() => setView('explanation')} style={{ fontSize: 13 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-                Back
-              </button>
-            </div>
-            <QuizView
-              quiz={quiz}
-              onClose={() => setView('explanation')}
-              onRetry={handleGenerateQuiz}
+          {view === 'main' && activeTab === 'scan' && (
+            <CameraCapture
+              videoRef={camera.videoRef}
+              capturedImage={camera.capturedImage}
+              cameraActive={camera.cameraActive}
+              onStartCamera={camera.startCamera}
+              onStopCamera={camera.stopCamera}
+              onCapturePhoto={camera.capturePhoto}
+              onFileUpload={camera.handleFileUpload}
+              onFlipCamera={camera.flipCamera}
+              onClearImage={camera.clearImage}
+              onExplain={handleExplain}
+              isProcessing={isProcessing}
+              onImageCropped={handleImageCropped}
+              facingMode={camera.facingMode}
+              onDocumentUpload={camera.handleDocumentUpload}
+              onClearDocument={camera.clearDocument}
+              documentContent={camera.documentContent}
             />
-          </>
-        )}
+          )}
 
-        {view === 'flashcards' && (
-          <>
-            <div style={styles.topBar}>
-              <button className="btn btn-secondary" onClick={() => setView('explanation')} style={{ fontSize: 13 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-                Back
-              </button>
-            </div>
-            <FlashcardView
-              flashcards={flashcards}
-              onClose={() => setView('explanation')}
-            />
-          </>
-        )}
+          {view === 'main' && activeTab === 'subjects' && (
+            <SubjectsPage onScanClick={() => setActiveTab('scan')} />
+          )}
 
-        {view === 'viewHistory' && (
-          <>
-            <div style={styles.topBar}>
-              <button className="btn btn-secondary" onClick={handleGoHome} style={{ fontSize: 13 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-                Back
-              </button>
-            </div>
-            <ExplanationView
-              explanation={explanation}
-              isStreaming={false}
-              imagePreview={selectedHistorySession?.image}
-              language={settings.language}
-              onGenerateQuiz={handleGenerateQuiz}
-              onGenerateFlashcards={handleGenerateFlashcards}
-              onSimplify={handleSimplify}
-              onAskFollowUp={handleFollowUp}
-              quizLoading={quizLoading}
-              flashcardsLoading={flashcardsLoading}
-              onLanguageChange={handleLanguageChange}
+          {view === 'main' && activeTab === 'history' && (
+            <HistoryPage
+              onViewSession={handleViewHistorySession}
+              onDeleteAll={handleGoHome}
             />
-          </>
-        )}
+          )}
+
+          {view === 'settings' && (
+            <SettingsPanel
+              settings={settings}
+              onChange={setSettings}
+              connectionStatus={connectionStatus}
+            />
+          )}
+
+          {view === 'explanation' && (
+            <>
+              <BackButton onClick={handleNewCapture} label="New Scan" />
+              <ExplanationView
+                explanation={explanation}
+                isStreaming={isStreaming}
+                imagePreview={camera.capturedImage}
+                language={settings.language}
+                onGenerateQuiz={handleGenerateQuiz}
+                onGenerateFlashcards={handleGenerateFlashcards}
+                onSimplify={handleSimplify}
+                onAskFollowUp={handleFollowUp}
+                quizLoading={quizLoading}
+                flashcardsLoading={flashcardsLoading}
+                onSaveSession={handleSaveSession}
+                onLanguageChange={handleLanguageChange}
+                onRetry={handleRetry}
+                onAbort={handleAbort}
+                onDeepDive={handleDeepDive}
+                onExtractKeyTerms={handleExtractKeyTerms}
+              />
+            </>
+          )}
+
+          {view === 'quiz' && (
+            <>
+              <BackButton onClick={() => setView('explanation')} />
+              <QuizView
+                quiz={quiz}
+                onClose={() => setView('explanation')}
+                onRetry={handleGenerateQuiz}
+              />
+            </>
+          )}
+
+          {view === 'flashcards' && (
+            <>
+              <BackButton onClick={() => setView('explanation')} />
+              <FlashcardView
+                flashcards={flashcards}
+                onClose={() => setView('explanation')}
+              />
+            </>
+          )}
+
+          {view === 'viewHistory' && (
+            <>
+              <BackButton onClick={handleGoHome} />
+              <ExplanationView
+                explanation={explanation}
+                isStreaming={false}
+                imagePreview={selectedHistorySession?.image}
+                language={settings.language}
+                onGenerateQuiz={handleGenerateQuiz}
+                onGenerateFlashcards={handleGenerateFlashcards}
+                onSimplify={handleSimplify}
+                onAskFollowUp={handleFollowUp}
+                quizLoading={quizLoading}
+                flashcardsLoading={flashcardsLoading}
+                onLanguageChange={handleLanguageChange}
+                onRetry={handleRetry}
+                onAbort={handleAbort}
+                onDeepDive={handleDeepDive}
+                onExtractKeyTerms={handleExtractKeyTerms}
+              />
+            </>
+          )}
+        </Suspense>
       </div>
 
       <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
     </>
   );
 }
+
+// Static style objects — never recreated
+const pageStyle = { paddingBottom: 80 };
 
 const styles = {
   topBar: {

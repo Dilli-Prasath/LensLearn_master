@@ -15,20 +15,36 @@ export default function BottomNav({ activeTab, onTabChange }) {
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
+          const isScan = tab.id === 'scan';
           return (
             <button
               key={tab.id}
               style={{
                 ...styles.navItem,
-                ...(isActive ? styles.navItemActive : {})
+                ...(isActive ? styles.navItemActive : {}),
               }}
               onClick={() => onTabChange(tab.id)}
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
             >
-              <Icon size={24} style={styles.navIcon} />
+              {isScan ? (
+                <div style={{
+                  ...styles.scanIconWrap,
+                  ...(isActive ? styles.scanIconWrapActive : {}),
+                }}>
+                  <Icon size={22} />
+                </div>
+              ) : (
+                <Icon
+                  size={22}
+                  style={{
+                    ...styles.navIcon,
+                    ...(isActive ? { transform: 'scale(1.12)' } : {}),
+                  }}
+                />
+              )}
               <span style={styles.navLabel}>{tab.label}</span>
-              {isActive && <div style={styles.activeIndicator} />}
+              {isActive && <div style={styles.activeIndicator} className="scale-in" />}
             </button>
           );
         })}
@@ -44,17 +60,17 @@ const styles = {
     left: 0,
     right: 0,
     background: 'rgba(15, 23, 42, 0.95)',
-    backdropFilter: 'blur(10px)',
+    backdropFilter: 'blur(12px)',
     borderTop: '1px solid var(--border)',
     zIndex: 50,
-    boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.35)',
   },
   navInner: {
     display: 'flex',
     justifyContent: 'space-around',
     alignItems: 'center',
-    height: 70,
-    maxWidth: 480,
+    height: 64,
+    maxWidth: 960,
     margin: '0 auto',
   },
   navItem: {
@@ -62,15 +78,15 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    padding: '8px 12px',
+    gap: 3,
+    padding: '6px 10px',
     background: 'none',
     border: 'none',
     color: 'var(--text-muted)',
     cursor: 'pointer',
     fontSize: 11,
     fontWeight: 600,
-    transition: 'all var(--transition-fast)',
+    transition: 'color 0.2s, transform 0.2s',
     position: 'relative',
     flex: 1,
   },
@@ -78,20 +94,39 @@ const styles = {
     color: 'var(--primary-light)',
   },
   navIcon: {
-    transition: 'all var(--transition-fast)',
+    transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+  },
+  scanIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: '50%',
+    background: 'var(--bg-card)',
+    border: '2px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -14,
+    transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+  },
+  scanIconWrapActive: {
+    background: 'var(--primary)',
+    borderColor: 'var(--primary)',
+    color: 'white',
+    transform: 'scale(1.1)',
+    boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
   },
   navLabel: {
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    transition: 'opacity 0.15s',
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: -14,
-    width: 3,
+    bottom: 2,
+    width: 16,
     height: 3,
-    borderRadius: '50%',
+    borderRadius: 2,
     background: 'var(--primary-light)',
-    animation: 'pulse 2s infinite',
   },
 };

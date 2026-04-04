@@ -230,7 +230,7 @@ const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column',
-    maxWidth: 480,
+    maxWidth: 960,
     margin: '0 auto',
   },
   header: {
