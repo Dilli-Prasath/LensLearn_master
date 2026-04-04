@@ -72,8 +72,18 @@ class SpeechService {
       .replace(/[-*+]\s/g, '')
       .trim();
 
+    const langMap = {
+      'English': 'en-US', 'Tamil': 'ta-IN', 'Hindi': 'hi-IN',
+      'Spanish': 'es-ES', 'French': 'fr-FR', 'German': 'de-DE',
+      'Portuguese': 'pt-BR', 'Arabic': 'ar-SA', 'Bengali': 'bn-IN',
+      'Chinese': 'zh-CN', 'Japanese': 'ja-JP', 'Korean': 'ko-KR',
+      'Indonesian': 'id-ID', 'Swahili': 'sw-KE', 'Russian': 'ru-RU',
+    };
+
     const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.voice = this._getVoice(language);
+    const selectedVoice = this._getVoice(language);
+    utterance.voice = selectedVoice;
+    utterance.lang = selectedVoice?.lang || langMap[language] || 'en-US';
     utterance.rate = rate;
     utterance.pitch = pitch;
     utterance.onstart = () => { this.speaking = true; this.paused = false; };

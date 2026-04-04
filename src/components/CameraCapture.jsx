@@ -1,5 +1,7 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Camera, SwitchCamera, Upload, X, RotateCcw } from 'lucide-react';
+import LoadingSpinner from './LoadingSpinner';
+import ImageCropper from './ImageCropper';
 
 export default function CameraCapture({
   videoRef,
@@ -11,15 +13,47 @@ export default function CameraCapture({
   onFlipCamera,
   onClearImage,
   onExplain,
-  isProcessing
+  isProcessing,
+  onImageCropped,
+  facingMode
 }) {
   const fileInputRef = useRef(null);
+  const [showCropper, setShowCropper] = useState(false);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) onFileUpload(file);
     e.target.value = '';
   };
+
+  const handleCropComplete = (croppedImage) => {
+    setShowCropper(false);
+    if (onImageCropped) {
+      onImageCropped(croppedImage);
+    }
+  };
+
+  const handleSkipCrop = () => {
+    setShowCropper(false);
+    // Proceed with full image
+  };
+
+  const handleRetakeCrop = () => {
+    setShowCropper(false);
+    onClearImage();
+  };
+
+  // Show image cropper
+  if (capturedImage && showCropper) {
+    return (
+      <ImageCropper
+        imageSrc={capturedImage}
+        onCropComplete={handleCropComplete}
+        onRetake={handleRetakeCrop}
+        onSkip={handleSkipCrop}
+      />
+    );
+  }
 
   // Show captured image preview
   if (capturedImage) {
@@ -44,6 +78,14 @@ export default function CameraCapture({
             Retake
           </button>
           <button
+            className="btn btn-outline"
+            style={{ flex: 1 }}
+            onClick={() => setShowCropper(true)}
+            disabled={isProcessing}
+          >
+            Crop
+          </button>
+          <button
             className="btn btn-primary"
             style={{ flex: 2 }}
             onClick={onExplain}
@@ -51,7 +93,7 @@ export default function CameraCapture({
           >
             {isProcessing ? (
               <>
-                <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                <LoadingSpinner variant="scan" size="sm" />
                 Analyzing...
               </>
             ) : (
@@ -76,7 +118,12 @@ export default function CameraCapture({
           playsInline
           muted
           style={styles.video}
-          onLoadedMetadata={(e) => e.target.play()}
+          onLoadedMetadata={(e) => {
+            e.target.play().catch(() => {});
+          }}
+          onCanPlay={(e) => {
+            e.target.play().catch(() => {});
+          }}
         />
         <div style={styles.cameraOverlay}>
           {/* Scanning animation effect */}
@@ -91,9 +138,12 @@ export default function CameraCapture({
           <p style={styles.cameraHint}>Position the textbook page within the frame</p>
         </div>
         <div style={styles.cameraControls}>
-          <button className="btn btn-icon btn-secondary" onClick={onFlipCamera}>
-            <SwitchCamera size={22} />
-          </button>
+          <div style={styles.flipButtonContainer}>
+            <button className="btn btn-icon btn-secondary" onClick={onFlipCamera}>
+              <SwitchCamera size={22} />
+            </button>
+            <span style={styles.cameraLabel}>{facingMode === 'user' ? 'Front' : 'Back'}</span>
+          </div>
           <button style={styles.captureBtn} onClick={onCapturePhoto}>
             <div style={styles.captureBtnInner} />
           </button>
@@ -117,7 +167,10 @@ export default function CameraCapture({
     <div style={styles.captureOptions} className="fade-in">
       <div style={styles.illustration}>
         <div style={styles.illustrationCircle}>
-          <Camera size={48} color="var(--primary-light)" />
+          <div style={styles.cameraIconLarge}>
+            <Camera size={56} color="var(--primary-light)" />
+          </div>
+          <p style={styles.tapHint}>Tap to start camera</p>
         </div>
       </div>
       <h2 style={styles.title}>Point your lens at any page</h2>
@@ -200,14 +253,16 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     background: '#000',
-    minHeight: '60vh',
+    minHeight: '70vh',
     overflow: 'hidden',
+    paddingBottom: 80,
   },
   video: {
     flex: 1,
     objectFit: 'cover',
     width: '100%',
-    minHeight: '50vh',
+    minHeight: '55vh',
+    background: '#000',
   },
   cameraOverlay: {
     position: 'absolute',
@@ -314,5 +369,29 @@ const styles = {
   previewActions: {
     display: 'flex',
     gap: 12,
+  },
+  cameraIconLarge: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  tapHint: {
+    marginTop: 12,
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
+    margin: 0,
+  },
+  flipButtonContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cameraLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: 500,
   },
 };

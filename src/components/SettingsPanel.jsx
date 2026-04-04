@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Globe, GraduationCap, Cpu, Moon, Sun, Trash2, Info } from 'lucide-react';
+import { Globe, GraduationCap, Cpu, Trash2, Info, Eye, Volume2 } from 'lucide-react';
 import historyService from '../services/historyService';
 
 const LANGUAGES = [
@@ -18,7 +18,13 @@ const GRADE_LEVELS = [
 
 export default function SettingsPanel({ settings, onChange, connectionStatus }) {
   const update = (key, value) => onChange({ ...settings, [key]: value });
-  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  const TEXT_SIZES = [
+    { label: 'Small', value: 'small' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Large', value: 'large' },
+    { label: 'Extra Large', value: 'xlarge' }
+  ];
 
   const handleResetData = () => {
     if (window.confirm('Reset all data? This cannot be undone.')) {
@@ -82,18 +88,73 @@ export default function SettingsPanel({ settings, onChange, connectionStatus }) 
             </div>
           </div>
 
-          {/* Theme */}
+
+          {/* Accessibility Features */}
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
-              {isDarkMode ? <Moon size={18} color="var(--primary-light)" /> : <Sun size={18} color="var(--primary-light)" />}
-              <span>Appearance</span>
+              <Eye size={18} color="var(--primary-light)" />
+              <span>Accessibility</span>
             </div>
-            <button
-              style={styles.themeBtn}
-              onClick={() => setIsDarkMode(!isDarkMode)}
-            >
-              {isDarkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
-            </button>
+
+            {/* Text Size */}
+            <div style={styles.subsection}>
+              <label style={styles.subsectionLabel}>Text Size</label>
+              <div style={styles.textSizeButtons}>
+                {TEXT_SIZES.map(size => (
+                  <button
+                    key={size.value}
+                    style={{
+                      ...styles.textSizeBtn,
+                      ...(settings.textSize === size.value ? styles.textSizeBtnActive : {})
+                    }}
+                    onClick={() => update('textSize', size.value)}
+                    title={`Set text size to ${size.label}`}
+                  >
+                    {size.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* High Contrast Mode */}
+            <div style={styles.subsection}>
+              <div style={styles.toggleRow}>
+                <label style={styles.toggleLabel}>High Contrast Mode</label>
+                <button
+                  style={{
+                    ...styles.toggleSwitch,
+                    ...(settings.highContrast ? styles.toggleSwitchActive : {})
+                  }}
+                  onClick={() => update('highContrast', !settings.highContrast)}
+                  title={settings.highContrast ? 'Disable high contrast' : 'Enable high contrast'}
+                >
+                  <div style={{
+                    ...styles.toggleCircle,
+                    ...(settings.highContrast ? styles.toggleCircleActive : {})
+                  }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Reduce Animations */}
+            <div style={styles.subsection}>
+              <div style={styles.toggleRow}>
+                <label style={styles.toggleLabel}>Reduce Animations</label>
+                <button
+                  style={{
+                    ...styles.toggleSwitch,
+                    ...(settings.reduceAnimations ? styles.toggleSwitchActive : {})
+                  }}
+                  onClick={() => update('reduceAnimations', !settings.reduceAnimations)}
+                  title={settings.reduceAnimations ? 'Enable animations' : 'Disable animations'}
+                >
+                  <div style={{
+                    ...styles.toggleCircle,
+                    ...(settings.reduceAnimations ? styles.toggleCircleActive : {})
+                  }} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Connection Status */}
@@ -327,5 +388,75 @@ const styles = {
   },
   bottomPadding: {
     height: 20,
+  },
+  subsection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    padding: '12px 0',
+    borderBottom: '1px solid var(--border-light)',
+  },
+  subsectionLabel: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+  },
+  textSizeButtons: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr 1fr',
+    gap: 8,
+  },
+  textSizeBtn: {
+    padding: '8px 12px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-card)',
+    color: 'var(--text-secondary)',
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all var(--transition-fast)',
+  },
+  textSizeBtnActive: {
+    background: 'rgba(99,102,241,0.15)',
+    borderColor: 'var(--primary)',
+    color: 'var(--primary-light)',
+  },
+  toggleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    border: 'none',
+    background: 'var(--bg-card-hover)',
+    cursor: 'pointer',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '2px',
+    transition: 'background var(--transition-fast)',
+  },
+  toggleSwitchActive: {
+    background: 'var(--primary)',
+  },
+  toggleCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    background: 'white',
+    transition: 'transform var(--transition-fast)',
+  },
+  toggleCircleActive: {
+    transform: 'translateX(20px)',
   },
 };

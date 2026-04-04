@@ -3,11 +3,14 @@ import Header from './components/Header';
 import CameraCapture from './components/CameraCapture';
 import ExplanationView from './components/ExplanationView';
 import QuizView from './components/QuizView';
+import FlashcardView from './components/FlashcardView';
 import SettingsPanel from './components/SettingsPanel';
 import BottomNav from './components/BottomNav';
 import Onboarding from './components/Onboarding';
+import InstallPrompt from './components/InstallPrompt';
 import HomePage from './pages/HomePage';
 import HistoryPage from './pages/HistoryPage';
+import SubjectsPage from './pages/SubjectsPage';
 import { useCamera } from './hooks/useCamera';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import ollamaService from './services/ollamaService';
@@ -17,6 +20,9 @@ const DEFAULT_SETTINGS = {
   language: 'English',
   gradeLevel: 'middle school (ages 11-13)',
   subject: 'auto-detect',
+  textSize: 'medium',
+  highContrast: false,
+  reduceAnimations: false,
 };
 
 export default function App() {
@@ -28,8 +34,8 @@ export default function App() {
   });
 
   // Tab navigation
-  const [activeTab, setActiveTab] = useState('home'); // home | scan | history | settings
-  const [view, setView] = useState('main'); // main | explanation | quiz | viewHistory
+  const [activeTab, setActiveTab] = useState('home'); // home | scan | subjects | history | settings
+  const [view, setView] = useState('main'); // main | explanation | quiz | flashcards | viewHistory
 
   // App state
   const [explanation, setExplanation] = useState('');
@@ -37,6 +43,8 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [quiz, setQuiz] = useState(null);
   const [quizLoading, setQuizLoading] = useState(false);
+  const [flashcards, setFlashcards] = useState(null);
+  const [flashcardsLoading, setFlashcardsLoading] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] = useState(null);
 
   // Check Ollama connection on mount and periodically
@@ -49,6 +57,20 @@ export default function App() {
     const interval = setInterval(check, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Stop camera when switching away from scan tab
+  useEffect(() => {
+    if (activeTab !== 'scan') {
+      camera.stopCamera();
+    }
+  }, [activeTab, camera]);
+
+  // Apply accessibility settings to document.body
+  useEffect(() => {
+    document.body.dataset.textSize = settings.textSize || 'medium';
+    document.body.dataset.highContrast = settings.highContrast ? 'true' : 'false';
+    document.body.dataset.reduceAnimations = settings.reduceAnimations ? 'true' : 'false';
+  }, [settings.textSize, settings.highContrast, settings.reduceAnimations]);
 
   // Main explain function
   const handleExplain = useCallback(async () => {
@@ -108,6 +130,23 @@ export default function App() {
     setQuizLoading(false);
   }, [explanation, settings.language]);
 
+  // Generate flashcards
+  const handleGenerateFlashcards = useCallback(async () => {
+    setFlashcardsLoading(true);
+    try {
+      const flashcardData = await ollamaService.generateFlashcards(explanation, {
+        language: settings.language
+      });
+      if (flashcardData.flashcards.length > 0) {
+        setFlashcards(flashcardData.flashcards);
+        setView('flashcards');
+      }
+    } catch (err) {
+      console.error('Flashcard generation failed:', err);
+    }
+    setFlashcardsLoading(false);
+  }, [explanation, settings.language]);
+
   // Simplify explanation
   const handleSimplify = useCallback(async () => {
     setIsStreaming(true);
@@ -131,11 +170,19 @@ export default function App() {
     });
   }, [explanation, settings.language]);
 
+  // Handle cropped image
+  const handleImageCropped = useCallback((croppedImage) => {
+    // Update the camera's captured image with the cropped version
+    const croppedBase64 = croppedImage.split(',')[1];
+    camera.setCroppedImage?.(croppedImage, croppedBase64);
+  }, [camera]);
+
   // Reset to main view
   const handleNewCapture = useCallback(() => {
     camera.clearImage();
     setExplanation('');
     setQuiz(null);
+    setFlashcards(null);
     setView('main');
     setActiveTab('scan');
   }, [camera]);
@@ -147,6 +194,7 @@ export default function App() {
     camera.clearImage();
     setExplanation('');
     setQuiz(null);
+    setFlashcards(null);
   }, [camera]);
 
   // View history session
@@ -164,6 +212,9 @@ export default function App() {
     } else if (tab === 'home') {
       setView('main');
       setActiveTab('home');
+    } else if (tab === 'subjects') {
+      setView('main');
+      setActiveTab('subjects');
     } else if (tab === 'history') {
       setView('main');
       setActiveTab('history');
@@ -181,6 +232,7 @@ export default function App() {
   // Main app view
   return (
     <>
+      <InstallPrompt />
       {view !== 'settings' && (
         <Header
           connectionStatus={connectionStatus}
@@ -188,7 +240,7 @@ export default function App() {
         />
       )}
 
-      <div className="page" style={{ paddingBottom: view === 'settings' ? 0 : 0 }}>
+      <div className="page" style={{ paddingBottom: 80 }}>
         {view === 'main' && activeTab === 'home' && (
           <HomePage
             onScanClick={() => {
@@ -213,7 +265,13 @@ export default function App() {
             onClearImage={camera.clearImage}
             onExplain={handleExplain}
             isProcessing={isProcessing}
+            onImageCropped={handleImageCropped}
+            facingMode={camera.facingMode}
           />
+        )}
+
+        {view === 'main' && activeTab === 'subjects' && (
+          <SubjectsPage onScanClick={() => setActiveTab('scan')} />
         )}
 
         {view === 'main' && activeTab === 'history' && (
@@ -247,10 +305,13 @@ export default function App() {
               imagePreview={camera.capturedImage}
               language={settings.language}
               onGenerateQuiz={handleGenerateQuiz}
+              onGenerateFlashcards={handleGenerateFlashcards}
               onSimplify={handleSimplify}
               onAskFollowUp={handleFollowUp}
               quizLoading={quizLoading}
+              flashcardsLoading={flashcardsLoading}
               onSaveSession={handleSaveSession}
+              onLanguageChange={(lang) => setSettings({ ...settings, language: lang })}
             />
           </>
         )}
@@ -273,6 +334,23 @@ export default function App() {
           </>
         )}
 
+        {view === 'flashcards' && (
+          <>
+            <div style={styles.topBar}>
+              <button className="btn btn-secondary" onClick={() => setView('explanation')} style={{ fontSize: 13 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                Back
+              </button>
+            </div>
+            <FlashcardView
+              flashcards={flashcards}
+              onClose={() => setView('explanation')}
+            />
+          </>
+        )}
+
         {view === 'viewHistory' && (
           <>
             <div style={styles.topBar}>
@@ -289,9 +367,12 @@ export default function App() {
               imagePreview={selectedHistorySession?.image}
               language={settings.language}
               onGenerateQuiz={handleGenerateQuiz}
+              onGenerateFlashcards={handleGenerateFlashcards}
               onSimplify={handleSimplify}
               onAskFollowUp={handleFollowUp}
               quizLoading={quizLoading}
+              flashcardsLoading={flashcardsLoading}
+              onLanguageChange={(lang) => setSettings({ ...settings, language: lang })}
             />
           </>
         )}

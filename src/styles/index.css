@@ -56,6 +56,15 @@
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Accessibility - Text Size (defaults to medium) */
+  --font-size-base: 16px;
+  --font-size-h1: 28px;
+  --font-size-h2: 24px;
+  --font-size-h3: 20px;
+  --font-size-body: 16px;
+  --font-size-small: 13px;
+  --font-size-xsmall: 12px;
+
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-dark));
   --gradient-accent: linear-gradient(135deg, var(--accent), var(--accent-dark));
@@ -80,6 +89,90 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+  font-size: var(--font-size-base);
+}
+
+/* Remove mobile tap highlight */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus, a:focus, input:focus, select:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Text Size Accessibility Settings */
+body[data-text-size="small"] {
+  --font-size-base: 14px;
+  --font-size-h1: 24px;
+  --font-size-h2: 20px;
+  --font-size-h3: 18px;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+  --font-size-xsmall: 11px;
+}
+
+body[data-text-size="medium"] {
+  --font-size-base: 16px;
+  --font-size-h1: 28px;
+  --font-size-h2: 24px;
+  --font-size-h3: 20px;
+  --font-size-body: 16px;
+  --font-size-small: 13px;
+  --font-size-xsmall: 12px;
+}
+
+body[data-text-size="large"] {
+  --font-size-base: 18px;
+  --font-size-h1: 32px;
+  --font-size-h2: 28px;
+  --font-size-h3: 24px;
+  --font-size-body: 18px;
+  --font-size-small: 15px;
+  --font-size-xsmall: 13px;
+}
+
+body[data-text-size="xlarge"] {
+  --font-size-base: 20px;
+  --font-size-h1: 36px;
+  --font-size-h2: 32px;
+  --font-size-h3: 28px;
+  --font-size-body: 20px;
+  --font-size-small: 17px;
+  --font-size-xsmall: 15px;
+}
+
+/* High Contrast Mode */
+body[data-high-contrast="true"] {
+  --primary: #4f46e5;
+  --primary-light: #6366f1;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e7eb;
+  --border: #4b5563;
+  --bg-card: #0a0e27;
+  --bg-dark: #000000;
+}
+
+body[data-high-contrast="true"] input,
+body[data-high-contrast="true"] textarea,
+body[data-high-contrast="true"] select {
+  border-width: 2px;
+  border-color: var(--primary);
+}
+
+body[data-high-contrast="true"] button {
+  border-width: 2px;
+}
+
+/* Reduce Animations - Motion Sensitivity */
+body[data-reduce-animations="true"] * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
 }
 
 #root {
@@ -240,12 +333,18 @@ body {
   animation: spin 0.8s linear infinite;
 }
 
-/* Skeleton loader */
+/* Skeleton loader - Shimmer effect */
 .skeleton {
-  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+  background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 50%, var(--bg-card) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
+  min-height: 20px;
+}
+
+/* Fade-in animation */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
 }
 
 /* Badge */

@@ -2,10 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
   Volume2, VolumeX, ChevronDown, ChevronUp,
-  MessageCircle, Brain, Send, Sparkles, Copy, Check, Share2
+  MessageCircle, Brain, Send, Sparkles, Copy, Check, Share2, Layers, CloudOff,
+  Heart, Globe
 } from 'lucide-react';
 import speechService from '../services/speechService';
 import historyService from '../services/historyService';
+import cacheService from '../services/cacheService';
+
+const LANGUAGES = [
+  'English', 'Spanish', 'French', 'German', 'Portuguese',
+  'Hindi', 'Tamil', 'Bengali', 'Arabic', 'Chinese',
+  'Japanese', 'Korean', 'Indonesian', 'Swahili', 'Russian'
+];
 
 export default function ExplanationView({
   explanation,
@@ -13,10 +21,17 @@ export default function ExplanationView({
   imagePreview,
   language,
   onGenerateQuiz,
+  onGenerateFlashcards,
   onSimplify,
   onAskFollowUp,
   quizLoading,
+  flashcardsLoading,
   onSaveSession,
+  imageHash,
+  sessionId,
+  isBookmarked,
+  onToggleBookmark,
+  onLanguageChange,
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showImage, setShowImage] = useState(false);
@@ -25,6 +40,9 @@ export default function ExplanationView({
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
+  const [isCached, setIsCached] = useState(false);
+  const [bookmarked, setBookmarked] = useState(isBookmarked || false);
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const contentRef = useRef(null);
   const savedRef = useRef(false);
 
@@ -33,6 +51,14 @@ export default function ExplanationView({
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [explanation, isStreaming]);
+
+  // Check if explanation is cached
+  useEffect(() => {
+    if (imageHash) {
+      const cached = cacheService.getCachedExplanation(imageHash);
+      setIsCached(!!cached);
+    }
+  }, [imageHash, explanation]);
 
   // Auto-save session when explanation is complete
   useEffect(() => {
@@ -78,6 +104,13 @@ export default function ExplanationView({
     }
   };
 
+  const handleToggleBookmark = () => {
+    if (sessionId && onToggleBookmark) {
+      const newBookmarkedState = onToggleBookmark(sessionId);
+      setBookmarked(newBookmarkedState);
+    }
+  };
+
   const handleFollowUp = async () => {
     if (!followUpQ.trim() || followUpLoading) return;
     setFollowUpLoading(true);
@@ -93,6 +126,37 @@ export default function ExplanationView({
 
   return (
     <div style={styles.container} className="slide-up">
+      {/* Language selector */}
+      <div style={styles.topBar}>
+        <button
+          style={styles.languageBtn}
+          onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+          title="Change explanation language"
+        >
+          <Globe size={16} />
+          <span>{language}</span>
+        </button>
+        {showLanguageSelector && (
+          <div style={styles.languageDropdown}>
+            {LANGUAGES.map(lang => (
+              <button
+                key={lang}
+                style={{
+                  ...styles.languageOption,
+                  ...(language === lang ? styles.languageOptionActive : {})
+                }}
+                onClick={() => {
+                  onLanguageChange?.(lang);
+                  setShowLanguageSelector(false);
+                }}
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Image toggle */}
       {imagePreview && (
         <button style={styles.imageToggle} onClick={() => setShowImage(!showImage)}>
@@ -110,6 +174,12 @@ export default function ExplanationView({
           <div style={styles.cardTitle}>
             <Sparkles size={18} color="var(--accent)" />
             <span>Explanation</span>
+            {isCached && (
+              <div style={styles.offlineBadge}>
+                <CloudOff size={14} />
+                <span>Saved offline</span>
+              </div>
+            )}
           </div>
           <div style={styles.cardActions}>
             <button style={styles.iconBtn} onClick={toggleSpeech} title={isSpeaking ? 'Stop reading' : 'Read aloud'}>
@@ -120,6 +190,9 @@ export default function ExplanationView({
             </button>
             <button style={styles.iconBtn} onClick={handleShare} title="Share">
               {shared ? <Check size={18} color="var(--success)" /> : <Share2 size={18} color="var(--text-secondary)" />}
+            </button>
+            <button style={styles.iconBtn} onClick={handleToggleBookmark} title={bookmarked ? 'Remove bookmark' : 'Add bookmark'}>
+              {bookmarked ? <Heart size={18} color="var(--accent)" fill="var(--accent)" /> : <Heart size={18} color="var(--text-secondary)" />}
             </button>
           </div>
         </div>
@@ -150,6 +223,10 @@ export default function ExplanationView({
           <button className="btn btn-secondary" onClick={onGenerateQuiz} disabled={quizLoading}>
             <Brain size={18} />
             {quizLoading ? 'Generating...' : 'Quiz Me'}
+          </button>
+          <button className="btn btn-secondary" onClick={onGenerateFlashcards} disabled={flashcardsLoading}>
+            <Layers size={18} />
+            {flashcardsLoading ? 'Creating...' : 'Flashcards'}
           </button>
           <button className="btn btn-secondary" onClick={onSimplify}>
             <Sparkles size={18} />
@@ -212,6 +289,57 @@ const styles = {
     gap: 16,
     padding: 16,
   },
+  topBar: {
+    display: 'flex',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 8,
+  },
+  languageBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 12px',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--text-secondary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s',
+  },
+  languageDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    marginTop: 4,
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    zIndex: 10,
+    maxHeight: 240,
+    overflowY: 'auto',
+    minWidth: 120,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  languageOption: {
+    padding: '8px 12px',
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-secondary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    textAlign: 'left',
+    transition: 'all 0.15s',
+    whiteSpace: 'nowrap',
+  },
+  languageOptionActive: {
+    background: 'rgba(99,102,241,0.15)',
+    color: 'var(--primary-light)',
+  },
   imageToggle: {
     display: 'flex',
     alignItems: 'center',
@@ -245,6 +373,17 @@ const styles = {
     gap: 8,
     fontWeight: 600,
     fontSize: 15,
+  },
+  offlineBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '4px 8px',
+    background: 'var(--bg-dark)',
+    border: '1px solid var(--border)',
+    borderRadius: 4,
+    fontSize: 12,
+    color: 'var(--text-secondary)',
   },
   cardActions: { display: 'flex', gap: 4 },
   iconBtn: {

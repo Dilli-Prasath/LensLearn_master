@@ -47,6 +47,7 @@ class HistoryService {
       subject: subject || this.detectSubject(explanation),
       language,
       quiz: quiz || null,
+      bookmarked: false,
     };
 
     this.sessions.unshift(session);
@@ -147,6 +148,26 @@ class HistoryService {
     return this.sessions.filter(s =>
       s.subject.toLowerCase().includes(subject.toLowerCase())
     );
+  }
+
+  /**
+   * Toggle bookmark status for a session
+   */
+  toggleBookmark(sessionId) {
+    const session = this.getSession(sessionId);
+    if (session) {
+      session.bookmarked = !session.bookmarked;
+      this._saveSessions();
+      return session.bookmarked;
+    }
+    return false;
+  }
+
+  /**
+   * Get only bookmarked sessions
+   */
+  getBookmarkedSessions() {
+    return this.sessions.filter(s => s.bookmarked);
   }
 
   /**

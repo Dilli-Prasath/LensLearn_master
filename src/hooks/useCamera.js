@@ -97,6 +97,11 @@ export function useCamera() {
     setImageBase64(null);
   }, []);
 
+  const setCroppedImage = useCallback((dataUrl, base64) => {
+    setCapturedImage(dataUrl);
+    setImageBase64(base64);
+  }, []);
+
   return {
     videoRef,
     capturedImage,
@@ -108,6 +113,7 @@ export function useCamera() {
     capturePhoto,
     handleFileUpload,
     flipCamera,
-    clearImage
+    clearImage,
+    setCroppedImage
   };
 }

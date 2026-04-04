@@ -1,9 +1,10 @@
-import { Home, Camera, Clock, Settings } from 'lucide-react';
+import { Home, Camera, BookOpen, Clock, Settings } from 'lucide-react';
 
 export default function BottomNav({ activeTab, onTabChange }) {
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'scan', label: 'Scan', icon: Camera },
+    { id: 'subjects', label: 'Subjects', icon: BookOpen },
     { id: 'history', label: 'History', icon: Clock },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];

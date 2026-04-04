@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { Search, Trash2, Eye } from 'lucide-react';
+import { Search, Trash2, Eye, Heart } from 'lucide-react';
 import historyService from '../services/historyService';
 
 export default function HistoryPage({ onViewSession, onDeleteAll }) {
   const [sessions, setSessions] = useState(historyService.getSessions());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSession, setSelectedSession] = useState(null);
+  const [filterMode, setFilterMode] = useState('all'); // 'all' or 'bookmarked'
 
-  const filteredSessions = sessions.filter(session =>
+  let displaySessions = sessions;
+
+  // Apply filter mode
+  if (filterMode === 'bookmarked') {
+    displaySessions = displaySessions.filter(s => s.bookmarked);
+  }
+
+  // Apply search
+  const filteredSessions = displaySessions.filter(session =>
     session.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
     session.explanation.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -15,6 +24,12 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
   const handleDelete = (id, e) => {
     e.stopPropagation();
     historyService.deleteSession(id);
+    setSessions(historyService.getSessions());
+  };
+
+  const handleToggleBookmark = (id, e) => {
+    e.stopPropagation();
+    historyService.toggleBookmark(id);
     setSessions(historyService.getSessions());
   };
 
@@ -43,6 +58,29 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
 
   return (
     <div style={styles.container}>
+      {/* Filter Tabs */}
+      <div style={styles.filterTabs}>
+        <button
+          style={{
+            ...styles.filterTab,
+            ...(filterMode === 'all' ? styles.filterTabActive : styles.filterTabInactive)
+          }}
+          onClick={() => setFilterMode('all')}
+        >
+          All
+        </button>
+        <button
+          style={{
+            ...styles.filterTab,
+            ...(filterMode === 'bookmarked' ? styles.filterTabActive : styles.filterTabInactive)
+          }}
+          onClick={() => setFilterMode('bookmarked')}
+        >
+          <Heart size={14} style={{ marginRight: 4 }} />
+          Bookmarked
+        </button>
+      </div>
+
       {/* Search Bar */}
       <div style={styles.searchContainer}>
         <Search size={18} color="var(--text-muted)" />
@@ -57,7 +95,7 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
 
       {/* Result Count */}
       <div style={styles.resultCount}>
-        {filteredSessions.length} of {sessions.length} scans
+        {filteredSessions.length} of {displaySessions.length} {filterMode === 'bookmarked' ? 'bookmarked' : ''} scans
       </div>
 
       {/* Sessions List */}
@@ -78,7 +116,12 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
 
             {/* Info */}
             <div style={styles.sessionInfo}>
-              <div style={styles.subject}>{session.subject}</div>
+              <div style={styles.subjectRow}>
+                <div style={styles.subject}>{session.subject}</div>
+                {session.bookmarked && (
+                  <Heart size={14} color="var(--accent)" fill="var(--accent)" style={{ marginLeft: 6, flexShrink: 0 }} />
+                )}
+              </div>
               <div style={styles.date}>
                 {new Date(session.timestamp).toLocaleDateString('en-US', {
                   month: 'short',
@@ -102,6 +145,13 @@ export default function HistoryPage({ onViewSession, onDeleteAll }) {
                 title="View"
               >
                 <Eye size={18} />
+              </button>
+              <button
+                style={styles.actionBtn}
+                onClick={(e) => handleToggleBookmark(session.id, e)}
+                title={session.bookmarked ? 'Remove bookmark' : 'Add bookmark'}
+              >
+                <Heart size={18} color={session.bookmarked ? 'var(--accent)' : 'var(--text-secondary)'} fill={session.bookmarked ? 'var(--accent)' : 'none'} />
               </button>
               <button
                 style={styles.actionBtn}
@@ -135,6 +185,31 @@ const styles = {
     padding: '16px 16px 100px',
     maxWidth: 480,
     margin: '0 auto',
+  },
+  filterTabs: {
+    display: 'flex',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterTab: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 16px',
+    borderRadius: 'var(--radius)',
+    border: '1px solid var(--border)',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
+  },
+  filterTabActive: {
+    background: 'var(--primary)',
+    color: 'white',
+    borderColor: 'var(--primary)',
+  },
+  filterTabInactive: {
+    background: 'var(--bg-card)',
+    color: 'var(--text-secondary)',
   },
   searchContainer: {
     display: 'flex',
@@ -188,6 +263,11 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 4,
+  },
+  subjectRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 0,
   },
   subject: {
     fontSize: 15,

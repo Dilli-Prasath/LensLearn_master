@@ -3,6 +3,8 @@
  * Handles all communication with the local Ollama instance running Gemma 4
  */
 
+import cacheService from './cacheService';
+
 const OLLAMA_BASE = '/api/ollama';
 const DEFAULT_MODEL = 'gemma3:4b';
 
@@ -76,6 +78,16 @@ class OllamaService {
       onStream = null
     } = options;
 
+    // Generate hash of the image for caching
+    const imageHash = cacheService.generateImageHash(imageBase64);
+
+    // Check if we have a cached explanation for this image
+    const cached = cacheService.getCachedExplanation(imageHash);
+    if (cached) {
+      console.log('Using cached explanation for image:', imageHash);
+      return cached.explanation;
+    }
+
     const systemPrompt = `You are LensLearn, a patient and encouraging tutor. Your job is to help students understand their textbook content.
 
 RULES:
@@ -92,7 +104,12 @@ RULES:
       ? `Look at this textbook page and explain what it's teaching. Give a ${detail} explanation.`
       : `This is from a ${subject} textbook. Explain this content with a ${detail} explanation.`;
 
-    return this._chat(systemPrompt, userPrompt, [imageBase64], onStream);
+    const explanation = await this._chat(systemPrompt, userPrompt, [imageBase64], onStream);
+
+    // Cache the explanation after receiving it
+    cacheService.cacheExplanation(imageHash, explanation);
+
+    return explanation;
   }
 
   /**
@@ -124,6 +141,36 @@ OUTPUT FORMAT (strictly follow this JSON format):
       return jsonMatch ? JSON.parse(jsonMatch[0]) : { questions: [] };
     } catch {
       return { questions: [] };
+    }
+  }
+
+  /**
+   * Generate flashcards based on explained content
+   */
+  async generateFlashcards(content, options = {}) {
+    const { language = 'English' } = options;
+
+    const systemPrompt = `You are a flashcard generator for LensLearn. Create educational flashcards in ${language}.
+
+OUTPUT FORMAT (strictly follow this JSON format):
+{
+  "flashcards": [
+    {
+      "front": "Question or prompt text",
+      "back": "Answer or explanation"
+    }
+  ]
+}`;
+
+    const userPrompt = `Based on this content, create 5-8 flashcards for study. Each card should have a clear question on the front and a concise answer on the back:\n\n${content}`;
+
+    const response = await this._chat(systemPrompt, userPrompt);
+
+    try {
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      return jsonMatch ? JSON.parse(jsonMatch[0]) : { flashcards: [] };
+    } catch {
+      return { flashcards: [] };
     }
   }
 
