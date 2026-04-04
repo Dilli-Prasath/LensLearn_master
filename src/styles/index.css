@@ -670,9 +670,9 @@ input:focus, textarea:focus, select:focus {
 
 /* ========= RESPONSIVE LAYOUT ========= */
 
-/* Desktop large (>1200px) — use wider grids */
+/* Desktop large — extra breathing room */
 @media (min-width: 1200px) {
-  .page { padding-left: 24px; padding-right: 24px; }
+  .page { padding-left: 32px; padding-right: 32px; }
 }
 
 /* Tablet / medium screens */
@@ -680,7 +680,7 @@ input:focus, textarea:focus, select:focus {
   .page { padding-left: 0; padding-right: 0; }
 }
 
-/* Mobile small (≤480px) */
+/* Mobile small */
 @media (max-width: 480px) {
   :root {
     --font-size-h1: 24px;
@@ -688,38 +688,87 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
-/* Responsive grid helper classes */
-.responsive-grid-4 {
+/* Auto-fit responsive grids — items size themselves based on available space */
+.grid-auto-fill {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
 }
-@media (max-width: 768px) {
-  .responsive-grid-4 { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 480px) {
-  .responsive-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+.responsive-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
 }
 
 .responsive-grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
-}
-@media (max-width: 768px) {
-  .responsive-grid-3 { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 480px) {
-  .responsive-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
 }
 
 .responsive-grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
 }
+
+/* Stats grid — adapts from 4-col to 2-col to 1-col */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+/* Bento stats — 2-col with span */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+/* Subject grid — 3-col down to 2-col */
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+/* Insight grid */
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+/* Upload grid */
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* Settings grids */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+/* Responsive padding for page containers */
+.page-container {
+  width: 100%;
+  max-width: var(--layout-max-width, 1200px);
+  margin: 0 auto;
+  padding: 16px clamp(16px, 3vw, 32px) 100px;
+}
+
+/* Ensure items don't overflow on small screens */
 @media (max-width: 480px) {
-  .responsive-grid-2 { grid-template-columns: 1fr; gap: 8px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .bento-grid { grid-template-columns: 1fr; }
+  .subject-grid { grid-template-columns: repeat(2, 1fr); }
+  .upload-grid { grid-template-columns: 1fr; }
 }
 
 @supports (padding: max(0px)) {

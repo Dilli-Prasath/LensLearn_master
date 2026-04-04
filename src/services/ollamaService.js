@@ -46,6 +46,13 @@ class OllamaService {
   }
 
   /**
+   * Check if current model supports thinking mode (only Gemma 4 does)
+   */
+  get supportsThinking() {
+    return this.model.toLowerCase().startsWith('gemma4');
+  }
+
+  /**
    * Check connection and auto-detect best Gemma model
    */
   async checkConnection() {
@@ -130,7 +137,7 @@ RULES:
       }
     ];
 
-    return this._streamOrChat(messages, onStream, { think: true });
+    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
   }
 
   /**
@@ -172,7 +179,7 @@ Content:\n${content}`;
         model: this.model,
         messages,
         format: 'json',
-        think: true,
+        ...(this.supportsThinking ? { think: true } : {}),
         keep_alive: '10m',
         options: GEMMA4_OPTIONS,
       });
@@ -227,7 +234,7 @@ Content:\n${content}`;
         model: this.model,
         messages,
         format: 'json',
-        think: true,
+        ...(this.supportsThinking ? { think: true } : {}),
         keep_alive: '10m',
         options: GEMMA4_OPTIONS,
       });
@@ -328,7 +335,7 @@ Content:\n${content}`;
       { role: 'user', content: `Summarize this educational content:\n\n${text}` }
     ];
 
-    return this._streamOrChat(messages, onStream, { think: true });
+    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
   }
 
   /**
@@ -377,7 +384,7 @@ Content:\n${content}`;
       { role: 'user', content: `Provide a deep dive explanation of this content:\n\n${content}` }
     ];
 
-    return this._streamOrChat(messages, onStream, { think: true });
+    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
   }
 
   /**
@@ -441,7 +448,7 @@ Content:\n${content}` }
       { role: 'user', content: `Solve this problem step by step:\n\n${content}` }
     ];
 
-    return this._streamOrChat(messages, onStream, { think: true });
+    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
   }
 
   /**

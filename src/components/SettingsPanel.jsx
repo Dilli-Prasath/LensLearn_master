@@ -551,7 +551,7 @@ const styles = {
   // Theme grid
   themeGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
     gap: 8,
   },
   themeCard: {
@@ -613,7 +613,7 @@ const styles = {
   // Font grid
   fontGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
     gap: 8,
   },
   fontBtn: {
@@ -629,7 +629,7 @@ const styles = {
   // Radius grid
   radiusGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
     gap: 8,
   },
   radiusBtn: {
@@ -646,7 +646,7 @@ const styles = {
   // Text size
   textSizeRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
     gap: 8,
   },
   textSizeBtn: {
