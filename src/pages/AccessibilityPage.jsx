@@ -12,6 +12,8 @@ import { Eye, Ear, Hand, Brain, Volume2, Mic, ZoomIn, Contrast, Palette, ArrowLe
 import { useNavigate } from 'react-router-dom';
 import { useAccessibilityStore } from '../store';
 import { announce } from '../components/accessibility/ScreenReaderAnnouncer';
+import Button from '../lib/components/Button';
+import Card from '../lib/components/Card';
 
 /* ─── Toggle component with proper a11y ─── */
 function Toggle({ label, description, checked, onChange, icon: Icon }) {
@@ -77,7 +79,7 @@ function ChipGroup({ label, options, value, onChange }) {
 /* ─── Section header ─── */
 function Section({ icon: Icon, title, color, children }) {
   return (
-    <section style={styles.section} aria-labelledby={`section-${title.replace(/\s/g, '-')}`}>
+    <Card variant="glass" style={styles.section} role="region" aria-labelledby={`section-${title.replace(/\s/g, '-')}`}>
       <div style={styles.sectionHeader}>
         <div style={{ ...styles.sectionIconWrap, background: `${color}20` }}>
           <Icon size={18} color={color} />
@@ -85,7 +87,7 @@ function Section({ icon: Icon, title, color, children }) {
         <h2 id={`section-${title.replace(/\s/g, '-')}`} style={styles.sectionTitle}>{title}</h2>
       </div>
       <div style={styles.sectionContent}>{children}</div>
-    </section>
+    </Card>
   );
 }
 
@@ -104,13 +106,12 @@ export default function AccessibilityPage() {
 
       {/* Header */}
       <div style={styles.header}>
-        <button
+        <Button
+          variant="secondary"
+          icon={ArrowLeft}
           onClick={() => navigate('/settings')}
-          style={styles.backBtn}
           aria-label="Back to Settings"
-        >
-          <ArrowLeft size={20} />
-        </button>
+        />
         <div>
           <h1 style={styles.pageTitle}>Accessibility</h1>
           <p style={styles.pageSubtitle}>Make LensLearn work for everyone</p>
@@ -254,10 +255,9 @@ export default function AccessibilityPage() {
       </Section>
 
       {/* Reset */}
-      <button onClick={handleReset} style={styles.resetBtn} aria-label="Reset all accessibility settings">
-        <RotateCcw size={16} />
+      <Button variant="danger" icon={RotateCcw} fullWidth onClick={handleReset} aria-label="Reset all accessibility settings">
         Reset All Settings
-      </button>
+      </Button>
 
       <div style={{ height: 32 }} />
     </div>
@@ -296,10 +296,7 @@ const styles = {
   // Sections
   section: {
     marginBottom: 24,
-    background: 'rgba(30,41,59,0.35)',
-    backdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    borderRadius: 16, overflow: 'hidden',
+    overflow: 'hidden',
   },
   sectionHeader: {
     display: 'flex', alignItems: 'center', gap: 10,

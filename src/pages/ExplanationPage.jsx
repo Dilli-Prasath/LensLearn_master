@@ -9,16 +9,16 @@ import { useScanStore, useSettingsStore, useHistoryStore, useAccessibilityStore 
 import speechService from '../services/speechService';
 import { announce } from '../components/accessibility/ScreenReaderAnnouncer';
 
+import Button from '../lib/components/Button';
+import { ArrowLeft } from 'lucide-react';
+
 // Back button
 function BackButton({ onClick, label = 'Back' }) {
   return (
     <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-      <button className="btn btn-secondary" onClick={onClick} style={{ fontSize: 13 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
+      <Button variant="secondary" icon={ArrowLeft} onClick={onClick} style={{ fontSize: 13 }}>
         {label}
-      </button>
+      </Button>
     </div>
   );
 }

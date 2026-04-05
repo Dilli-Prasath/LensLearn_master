@@ -18,9 +18,14 @@ import {
   Star,
   Award,
   BarChart3,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useHistoryStore } from '../store';
+import Card from '../lib/components/Card';
+import Button from '../lib/components/Button';
+import Badge from '../lib/components/Badge';
+import EmptyState from '../lib/components/EmptyState';
 
 const SUBJECT_CONFIG = {
   math: { color: '#6366f1', icon: Calculator, gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))' },
@@ -96,17 +101,14 @@ export default function SubjectsPage() {
       {subjectCards.length === 0 ? (
         <div className="fade-in">
           {/* Empty state with explore suggestions */}
-          <div style={styles.emptyState}>
-            <div style={styles.emptyIconWrap} className="bounce-in">
-              <BookOpen size={48} color="var(--primary-light)" />
-            </div>
-            <h2 style={styles.emptyTitle}>Start Your Learning Journey</h2>
-            <p style={styles.emptyText}>Scan textbook pages to track your progress across different subjects!</p>
-            <button className="btn btn-primary" onClick={onScanClick} style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Target size={18} />
-              Start Scanning
-            </button>
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            title="Start Your Learning Journey"
+            message="Scan textbook pages to track your progress across different subjects!"
+          />
+          <Button variant="primary" icon={Target} fullWidth onClick={onScanClick} style={{ marginTop: 16 }}>
+            Start Scanning
+          </Button>
 
           {/* Explore subjects */}
           <div style={styles.section}>
@@ -118,13 +120,13 @@ export default function SubjectsPage() {
               {EXPLORE_SUBJECTS.map((sub) => {
                 const Icon = sub.icon;
                 return (
-                  <div key={sub.name} style={styles.exploreCard} className="hover-lift" onClick={onScanClick}>
+                  <Card key={sub.name} variant="glass" style={styles.exploreCard} className="hover-lift" onClick={onScanClick}>
                     <div style={{ ...styles.exploreIcon, background: `${sub.color}20`, color: sub.color }}>
                       <Icon size={24} />
                     </div>
                     <div style={styles.exploreName}>{sub.name}</div>
                     <div style={styles.exploreTip}>{sub.tip}</div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -142,21 +144,21 @@ export default function SubjectsPage() {
 
           {/* Stats overview */}
           <div style={styles.statsRow} className="responsive-grid-3 stagger-children">
-            <div style={styles.statCard} className="hover-lift">
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <BarChart3 size={18} color="var(--primary-light)" />
               <div style={styles.statValue}>{totalScans}</div>
               <div style={styles.statLabel}>Total Scans</div>
-            </div>
-            <div style={styles.statCard} className="hover-lift">
+            </Card>
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <TrendingUp size={18} color="var(--success)" />
               <div style={styles.statValue}>{avgProgress}%</div>
               <div style={styles.statLabel}>Avg Score</div>
-            </div>
-            <div style={styles.statCard} className="hover-lift">
+            </Card>
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <Star size={18} color="var(--accent)" />
               <div style={styles.statValue}>{subjectCards.length}</div>
               <div style={styles.statLabel}>Subjects</div>
-            </div>
+            </Card>
           </div>
 
           {/* Top subject highlight */}
@@ -171,18 +173,20 @@ export default function SubjectsPage() {
 
           {/* View toggle */}
           <div style={styles.viewToggle}>
-            <button
-              style={{ ...styles.viewBtn, ...(viewMode === 'grid' ? styles.viewBtnActive : {}) }}
+            <Button
+              variant={viewMode === 'grid' ? 'primary' : 'secondary'}
               onClick={() => setViewMode('grid')}
+              style={styles.viewBtn}
             >
               Grid
-            </button>
-            <button
-              style={{ ...styles.viewBtn, ...(viewMode === 'list' ? styles.viewBtnActive : {}) }}
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'primary' : 'secondary'}
               onClick={() => setViewMode('list')}
+              style={styles.viewBtn}
             >
               List
-            </button>
+            </Button>
           </div>
 
           {/* Subject cards */}
@@ -210,11 +214,9 @@ export default function SubjectsPage() {
               {EXPLORE_SUBJECTS.filter(s => !subjectCards.find(c => c.subject.toLowerCase() === s.name.toLowerCase())).slice(0, 3).map((sub) => {
                 const Icon = sub.icon;
                 return (
-                  <div key={sub.name} style={styles.exploreChip} className="hover-lift" onClick={onScanClick}>
-                    <Icon size={16} color={sub.color} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</span>
-                    <ChevronRight size={14} color="var(--text-muted)" />
-                  </div>
+                  <Button key={sub.name} variant="secondary" icon={Icon} iconRight={ChevronRight} onClick={onScanClick} style={styles.exploreChip} className="hover-lift">
+                    {sub.name}
+                  </Button>
                 );
               })}
             </div>
@@ -253,7 +255,8 @@ function SubjectCard({ subject, isExpanded, onToggle, viewMode }) {
 
   if (viewMode === 'grid') {
     return (
-      <div
+      <Card
+        variant="glass"
         style={{ ...styles.gridCard, borderColor: `${config.color}30` }}
         className="hover-lift"
         onClick={onToggle}
@@ -263,9 +266,9 @@ function SubjectCard({ subject, isExpanded, onToggle, viewMode }) {
         </div>
         <h3 style={styles.gridCardTitle}>{subject.subject}</h3>
         <div style={styles.gridCardMeta}>{subject.count} scans</div>
-        <div style={{ ...styles.levelBadge, background: `${levelColors[subject.level]}20`, color: levelColors[subject.level] }}>
+        <Badge style={{ background: `${levelColors[subject.level]}20`, color: levelColors[subject.level] }}>
           {subject.level}
-        </div>
+        </Badge>
         {/* Mini progress ring */}
         <svg width="40" height="40" viewBox="0 0 40 40" style={{ margin: '8px auto 0' }}>
           <circle cx="20" cy="20" r="16" fill="none" stroke="var(--border)" strokeWidth="3" />
@@ -280,12 +283,13 @@ function SubjectCard({ subject, isExpanded, onToggle, viewMode }) {
             {subject.progress}%
           </text>
         </svg>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div
+    <Card
+      variant="glass"
       style={{ ...styles.card, background: config.gradient, borderLeft: `4px solid ${config.color}` }}
       className="hover-lift"
     >
@@ -297,9 +301,9 @@ function SubjectCard({ subject, isExpanded, onToggle, viewMode }) {
           <div style={styles.cardInfo}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h3 style={styles.cardTitle}>{subject.subject}</h3>
-              <span style={{ ...styles.levelBadge, background: `${levelColors[subject.level]}20`, color: levelColors[subject.level] }}>
+              <Badge style={{ background: `${levelColors[subject.level]}20`, color: levelColors[subject.level] }}>
                 {subject.level}
-              </span>
+              </Badge>
             </div>
             <p style={styles.cardMeta}>
               {subject.count} scan{subject.count !== 1 ? 's' : ''} • Last studied {formatDate(subject.lastStudied)}
@@ -357,7 +361,7 @@ function SubjectCard({ subject, isExpanded, onToggle, viewMode }) {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 

@@ -1,71 +1,92 @@
+import { forwardRef, memo } from 'react';
 import { WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '../lib/components/Button';
 
-export default function ErrorState({ title, message, onRetry, type = 'general' }) {
-  const getIcon = () => {
-    switch (type) {
-      case 'connection':
-        return <WifiOff size={48} style={styles.icon} />;
-      case 'processing':
-        return <AlertCircle size={48} style={styles.icon} />;
-      case 'general':
-      default:
-        return <AlertCircle size={48} style={styles.icon} />;
-    }
-  };
+const ErrorState = forwardRef(
+  ({ title, message, onRetry, type = 'general', className, style }, ref) => {
+    const getIcon = () => {
+      switch (type) {
+        case 'connection':
+          return <WifiOff size={48} style={styles.icon} />;
+        case 'processing':
+          return <AlertCircle size={48} style={styles.icon} />;
+        case 'general':
+        default:
+          return <AlertCircle size={48} style={styles.icon} />;
+      }
+    };
 
-  const getHelpText = () => {
-    switch (type) {
-      case 'connection':
-        return (
-          <ul style={styles.tipsList}>
-            <li style={styles.tipsItem}>Check your internet connection</li>
-            <li style={styles.tipsItem}>Make sure Ollama is running locally</li>
-            <li style={styles.tipsItem}>Try refreshing the page</li>
-          </ul>
-        );
-      case 'processing':
-        return (
-          <ul style={styles.tipsList}>
-            <li style={styles.tipsItem}>Processing is taking longer than expected</li>
-            <li style={styles.tipsItem}>Try uploading a smaller or clearer image</li>
-            <li style={styles.tipsItem}>Check that your device has sufficient memory</li>
-          </ul>
-        );
-      case 'general':
-      default:
-        return (
-          <ul style={styles.tipsList}>
-            <li style={styles.tipsItem}>Try refreshing the page</li>
-            <li style={styles.tipsItem}>Check your internet connection</li>
-            <li style={styles.tipsItem}>If the problem persists, try again later</li>
-          </ul>
-        );
-    }
-  };
+    const getHelpText = () => {
+      switch (type) {
+        case 'connection':
+          return [
+            'Check your internet connection',
+            'Make sure Ollama is running locally',
+            'Try refreshing the page',
+          ];
+        case 'processing':
+          return [
+            'Processing is taking longer than expected',
+            'Try uploading a smaller or clearer image',
+            'Check that your device has sufficient memory',
+          ];
+        case 'general':
+        default:
+          return [
+            'Try refreshing the page',
+            'Check your internet connection',
+            'If the problem persists, try again later',
+          ];
+      }
+    };
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.content}>
-        <div style={styles.iconWrapper}>{getIcon()}</div>
+    const helpText = getHelpText();
+    const containerStyle = {
+      ...styles.container,
+      ...(style || {}),
+    };
 
-        <h2 style={styles.title}>{title}</h2>
-        <p style={styles.message}>{message}</p>
+    return (
+      <div
+        ref={ref}
+        style={containerStyle}
+        className={className}
+      >
+        <div style={styles.content}>
+          <div style={styles.iconWrapper}>{getIcon()}</div>
 
-        <div style={styles.tipsContainer}>
-          <p style={styles.tipsHeader}>Here are some tips:</p>
-          {getHelpText()}
+          <h2 style={styles.title}>{title}</h2>
+          <p style={styles.message}>{message}</p>
+
+          <div style={styles.tipsContainer}>
+            <p style={styles.tipsHeader}>Here are some tips:</p>
+            <ul style={styles.tipsList}>
+              {helpText.map((tip, index) => (
+                <li key={index} style={styles.tipsItem}>
+                  <span style={styles.bulletPoint}>&#8226;</span>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {onRetry && (
+            <Button
+              onClick={onRetry}
+              variant="primary"
+              className="w-full mt-2"
+              icon={<RefreshCw size={18} />}
+            >
+              Try Again
+            </Button>
+          )}
         </div>
-
-        {onRetry && (
-          <button style={styles.retryBtn} onClick={onRetry} className="btn btn-primary btn-full">
-            <RefreshCw size={18} />
-            Try Again
-          </button>
-        )}
       </div>
-    </div>
-  );
-}
+    );
+  }
+);
+
+ErrorState.displayName = 'ErrorState';
 
 const styles = {
   container: {
@@ -136,25 +157,15 @@ const styles = {
     fontSize: 13,
     color: 'var(--text-secondary)',
     margin: 0,
-    paddingLeft: 16,
-    position: 'relative',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
   },
-  retryBtn: {
-    width: '100%',
-    marginTop: 8,
+  bulletPoint: {
+    color: 'var(--primary-light)',
+    fontWeight: 'bold',
+    flexShrink: 0,
   },
 };
 
-// Add bullet point styling
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  [style*="paddingLeft: 16px"]::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--primary-light);
-  }
-`;
-if (typeof document !== 'undefined') {
-  document.head.appendChild(styleSheet);
-}
+export default memo(ErrorState);

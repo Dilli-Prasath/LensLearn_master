@@ -1,5 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import { CheckCircle, XCircle, ArrowRight, Trophy, RotateCcw, Zap, Target, Star } from 'lucide-react';
+import Button from '../lib/components/Button';
+import Card from '../lib/components/Card';
+import Badge from '../lib/components/Badge';
+import Progress from '../lib/components/Progress';
+import ScoreRing from '../lib/components/ScoreRing';
 
 export default function QuizView({ quiz, onClose, onRetry }) {
   const [currentQ, setCurrentQ] = useState(0);
@@ -52,7 +57,6 @@ export default function QuizView({ quiz, onClose, onRetry }) {
 
   if (finished) {
     const percentage = Math.round((score / questions.length) * 100);
-    const grade = percentage >= 90 ? 'A+' : percentage >= 80 ? 'A' : percentage >= 70 ? 'B' : percentage >= 60 ? 'C' : 'D';
     const emoji = percentage >= 80 ? 'Excellent!' : percentage >= 50 ? 'Good effort!' : 'Keep practicing!';
     const stars = percentage >= 90 ? 3 : percentage >= 70 ? 2 : percentage >= 40 ? 1 : 0;
 
@@ -72,65 +76,52 @@ export default function QuizView({ quiz, onClose, onRetry }) {
           </div>
         </div>
 
-        <div style={styles.resultCard} className="card bounce-in">
-          <Trophy size={48} color="var(--accent)" style={{ filter: 'drop-shadow(0 4px 12px rgba(245,158,11,0.4))' }} />
-          <h2 style={styles.resultTitle}>{emoji}</h2>
+        <Card variant="elevated" style={styles.resultCard} className="bounce-in">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14 }}>
+            <Trophy size={48} color="var(--accent)" style={{ filter: 'drop-shadow(0 4px 12px rgba(245,158,11,0.4))' }} />
+            <h2 style={styles.resultTitle}>{emoji}</h2>
 
-          {/* Stars */}
-          <div style={styles.starsRow}>
-            {[1, 2, 3].map(i => (
-              <Star
-                key={i}
-                size={28}
-                color={i <= stars ? '#f59e0b' : 'var(--border)'}
-                fill={i <= stars ? '#f59e0b' : 'none'}
-                style={{ transition: 'all 0.3s', transitionDelay: `${i * 0.2}s` }}
-              />
-            ))}
-          </div>
-
-          {/* Score circle */}
-          <div style={styles.scoreRingWrap}>
-            <svg width="120" height="120" viewBox="0 0 120 120">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" strokeWidth="6" />
-              <circle
-                cx="60" cy="60" r="52"
-                fill="none" stroke={percentage >= 70 ? 'var(--success)' : percentage >= 40 ? 'var(--accent)' : 'var(--error)'}
-                strokeWidth="6"
-                strokeDasharray={`${326.7 * (percentage / 100)} 326.7`}
-                strokeLinecap="round"
-                style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dasharray 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-              />
-            </svg>
-            <div style={styles.scoreCenter}>
-              <span style={styles.scoreGrade}>{grade}</span>
-              <span style={styles.scorePercent}>{percentage}%</span>
+            {/* Stars */}
+            <div style={styles.starsRow}>
+              {[1, 2, 3].map(i => (
+                <Star
+                  key={i}
+                  size={28}
+                  color={i <= stars ? '#f59e0b' : 'var(--border)'}
+                  fill={i <= stars ? '#f59e0b' : 'none'}
+                  style={{ transition: 'all 0.3s', transitionDelay: `${i * 0.2}s` }}
+                />
+              ))}
             </div>
-          </div>
 
-          <div style={styles.resultStats} className="stagger-children">
-            <div style={styles.resultStat}>
-              <Target size={16} color="var(--primary-light)" />
-              <span>{score}/{questions.length} correct</span>
-            </div>
-            {maxStreak > 1 && (
+            {/* Score ring */}
+            <ScoreRing score={score} total={questions.length} showGrade size={120} />
+
+            {/* Stats */}
+            <div style={styles.resultStats} className="stagger-children">
               <div style={styles.resultStat}>
-                <Zap size={16} color="#f59e0b" />
-                <span>{maxStreak} best streak</span>
+                <Target size={16} color="var(--primary-light)" />
+                <span>{score}/{questions.length} correct</span>
               </div>
-            )}
-          </div>
+              {maxStreak > 1 && (
+                <div style={styles.resultStat}>
+                  <Zap size={16} color="#f59e0b" />
+                  <span>{maxStreak} best streak</span>
+                </div>
+              )}
+            </div>
 
-          <div style={styles.resultActions}>
-            <button className="btn btn-secondary" onClick={onRetry} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <RotateCcw size={18} />
-              Try Again
-            </button>
-            <button className="btn btn-primary" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Continue
-            </button>
+            {/* Actions */}
+            <div style={styles.resultActions}>
+              <Button variant="secondary" icon={<RotateCcw size={18} />} onClick={onRetry}>
+                Try Again
+              </Button>
+              <Button variant="primary" onClick={onClose}>
+                Continue
+              </Button>
+            </div>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -150,12 +141,11 @@ export default function QuizView({ quiz, onClose, onRetry }) {
 
       {/* Progress bar (linear) */}
       <div style={styles.progressBarWrap}>
-        <div style={styles.progressBarTrack}>
-          <div style={{
-            ...styles.progressBarFill,
-            width: `${((currentQ + (showResult ? 1 : 0)) / questions.length) * 100}%`,
-          }} />
-        </div>
+        <Progress
+          value={currentQ + (showResult ? 1 : 0)}
+          max={questions.length}
+          size="md"
+        />
         <span style={styles.progressLabel}>
           {currentQ + 1} / {questions.length}
         </span>
@@ -163,24 +153,21 @@ export default function QuizView({ quiz, onClose, onRetry }) {
 
       {/* Score badges */}
       <div style={styles.scoreBadges}>
-        <div style={styles.scoreBadge}>
-          <CheckCircle size={14} color="var(--success)" />
-          <span style={{ color: 'var(--success)' }}>{score}</span>
-        </div>
-        <div style={styles.scoreBadge}>
-          <XCircle size={14} color="var(--error)" />
-          <span style={{ color: 'var(--error)' }}>{answers.length - score}</span>
-        </div>
+        <Badge variant="success" size="sm" icon={<CheckCircle size={14} />}>
+          {score}
+        </Badge>
+        <Badge variant="error" size="sm" icon={<XCircle size={14} />}>
+          {answers.length - score}
+        </Badge>
       </div>
 
       {/* Question */}
-      <div
-        className="card"
+      <Card
         style={{ ...styles.questionCard, ...(showWrongShake ? styles.shakeAnim : {}) }}
       >
         <div style={styles.questionNumber}>Q{currentQ + 1}</div>
         <p style={styles.questionText}>{question.question}</p>
-      </div>
+      </Card>
 
       {/* Options */}
       <div style={styles.options} className="stagger-children">
@@ -221,13 +208,14 @@ export default function QuizView({ quiz, onClose, onRetry }) {
 
       {/* Next button */}
       {showResult && (
-        <button className="btn btn-primary btn-full" onClick={handleNext} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {currentQ < questions.length - 1 ? (
-            <><ArrowRight size={18} /> Next Question</>
-          ) : (
-            <><Trophy size={18} /> See Results</>
-          )}
-        </button>
+        <Button
+          variant="primary"
+          fullWidth
+          icon={currentQ < questions.length - 1 ? <ArrowRight size={18} /> : <Trophy size={18} />}
+          onClick={handleNext}
+        >
+          {currentQ < questions.length - 1 ? 'Next Question' : 'See Results'}
+        </Button>
       )}
     </div>
   );
@@ -262,13 +250,10 @@ const styles = {
 
   // Progress bar
   progressBarWrap: { display: 'flex', alignItems: 'center', gap: 10 },
-  progressBarTrack: { flex: 1, height: 6, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' },
-  progressBarFill: { height: '100%', background: 'linear-gradient(90deg, var(--primary), var(--accent))', borderRadius: 3, transition: 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' },
   progressLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' },
 
   // Score badges
   scoreBadges: { display: 'flex', gap: 12, justifyContent: 'center' },
-  scoreBadge: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 14, fontWeight: 700 },
 
   // Question
   questionCard: { padding: 20, transition: 'transform 0.3s' },
@@ -312,18 +297,10 @@ const styles = {
     top: -10,
   },
   resultCard: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    textAlign: 'center', padding: 28, gap: 14, marginTop: 20,
+    padding: 28, marginTop: 20,
   },
   resultTitle: { fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' },
   starsRow: { display: 'flex', gap: 8 },
-  scoreRingWrap: { position: 'relative', width: 120, height: 120 },
-  scoreCenter: {
-    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-  },
-  scoreGrade: { fontSize: 28, fontWeight: 800, color: 'var(--text-primary)' },
-  scorePercent: { fontSize: 12, color: 'var(--text-muted)' },
   resultStats: { display: 'flex', gap: 16 },
   resultStat: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 },
   resultActions: { display: 'flex', gap: 12, marginTop: 8 },

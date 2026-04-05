@@ -7,20 +7,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useHistoryStore } from '../store';
 import exportService from '../services/exportService';
-
-/* ─── tiny helpers ─── */
-const Glass = ({ children, style, className = '', ...rest }) => (
-  <div style={{ ...glassBase, ...style }} className={className} {...rest}>{children}</div>
-);
-
-const glassBase = {
-  background: 'rgba(30,41,59,0.45)',
-  backdropFilter: 'blur(20px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 'var(--radius, 12px)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
-};
+import Card from '../lib/components/Card';
+import Button from '../lib/components/Button';
+import Badge from '../lib/components/Badge';
+import EmptyState from '../lib/components/EmptyState';
+import IconButton from '../lib/components/IconButton';
 
 export default function HistoryPage() {
   const navigate = useNavigate();
@@ -106,15 +97,11 @@ export default function HistoryPage() {
   if (sessions.length === 0) {
     return (
       <div style={styles.page}>
-        <div style={styles.emptyState} className="fade-in">
-          <div style={styles.emptyIconRing}>
-            <Clock size={44} color="var(--primary-light)" />
-          </div>
-          <h2 style={styles.emptyTitle}>No Scans Yet</h2>
-          <p style={styles.emptyText}>
-            Your learning history will appear here as you scan and analyze pages
-          </p>
-        </div>
+        <EmptyState
+          icon={Clock}
+          title="No Scans Yet"
+          message="Your learning history will appear here as you scan and analyze pages"
+        />
       </div>
     );
   }
@@ -135,44 +122,44 @@ export default function HistoryPage() {
           {/* ── Stats row ── */}
           <div style={styles.statsRow}>
             {/* Streak */}
-            <Glass style={styles.statCard} className="hover-lift">
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <div style={{ ...styles.statIconBg, background: 'linear-gradient(135deg, rgba(251,146,60,0.2), rgba(245,158,11,0.08))' }}>
                 <Flame size={20} color="#fb923c" />
               </div>
               <div style={styles.statNumber}>{insights.streak}</div>
               <div style={styles.statLabel}>Day Streak</div>
-            </Glass>
+            </Card>
 
             {/* This week */}
-            <Glass style={styles.statCard} className="hover-lift">
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <div style={{ ...styles.statIconBg, background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(99,102,241,0.08))' }}>
                 <BookOpen size={20} color="var(--primary-light)" />
               </div>
               <div style={styles.statNumber}>{insights.thisWeekCount}</div>
               <div style={styles.statLabel}>This Week</div>
-            </Glass>
+            </Card>
 
             {/* All time */}
-            <Glass style={styles.statCard} className="hover-lift">
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <div style={{ ...styles.statIconBg, background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.08))' }}>
                 <Calendar size={20} color="#10b981" />
               </div>
               <div style={styles.statNumber}>{insights.totalSessions}</div>
               <div style={styles.statLabel}>All Time</div>
-            </Glass>
+            </Card>
 
             {/* Top subject */}
-            <Glass style={styles.statCard} className="hover-lift">
+            <Card variant="glass" style={styles.statCard} className="hover-lift">
               <div style={{ ...styles.statIconBg, background: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(168,85,247,0.08))' }}>
                 <Sparkles size={20} color="#a855f7" />
               </div>
               <div style={{ ...styles.statNumber, fontSize: insights.topSubject.length > 8 ? 15 : 20 }}>{insights.topSubject}</div>
               <div style={styles.statLabel}>Top Subject</div>
-            </Glass>
+            </Card>
           </div>
 
           {/* ── Weekly activity chart ── */}
-          <Glass style={styles.weekChart}>
+          <Card variant="glass" style={styles.weekChart}>
             <div style={styles.weekChartHeader}>
               <span style={styles.weekChartTitle}>Weekly Activity</span>
               <span style={styles.weekChartCount}>{insights.thisWeekCount} scans</span>
@@ -206,7 +193,7 @@ export default function HistoryPage() {
                 </div>
               ))}
             </div>
-          </Glass>
+          </Card>
         </section>
       )}
 
@@ -240,15 +227,14 @@ export default function HistoryPage() {
             <option value="subject">Subject</option>
           </select>
 
-          <button style={styles.exportBtn} onClick={handleExportAll} className="hover-lift">
-            <Download size={14} />
+          <Button variant="primary" icon={Download} onClick={handleExportAll} className="hover-lift">
             Export
-          </button>
+          </Button>
         </div>
       </section>
 
       {/* ═══ SEARCH ═══ */}
-      <Glass style={styles.searchContainer}>
+      <Card variant="glass" style={styles.searchContainer}>
         <Search size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
         <input
           type="text"
@@ -258,9 +244,9 @@ export default function HistoryPage() {
           style={styles.searchInput}
         />
         {searchTerm && (
-          <button style={styles.clearSearch} onClick={() => setSearchTerm('')}>&times;</button>
+          <IconButton icon={X} size="sm" variant="ghost" onClick={() => setSearchTerm('')} style={styles.clearSearch} />
         )}
-      </Glass>
+      </Card>
 
       <div style={styles.resultCount}>
         {filteredSessions.length} of {displaySessions.length} scans
@@ -269,8 +255,9 @@ export default function HistoryPage() {
       {/* ═══ SESSION CARDS ═══ */}
       <div style={styles.sessionGrid} className="stagger-children">
         {filteredSessions.map(session => (
-          <Glass
+          <Card
             key={session.id}
+            variant="glass"
             style={styles.sessionCard}
             onClick={() => handleViewSession(session)}
             className="hover-lift"
@@ -303,36 +290,30 @@ export default function HistoryPage() {
 
             {/* Actions */}
             <div style={styles.actions}>
-              <button
-                style={styles.actionBtn}
+              <IconButton
+                icon={Heart}
+                size="sm"
+                variant="ghost"
                 onClick={(e) => handleToggleBookmark(session.id, e)}
-                title={session.bookmarked ? 'Remove bookmark' : 'Bookmark'}
-              >
-                <Heart
-                  size={15}
-                  color={session.bookmarked ? '#f472b6' : 'var(--text-muted)'}
-                  fill={session.bookmarked ? '#f472b6' : 'none'}
-                />
-              </button>
-              <button
-                style={styles.actionBtn}
+              />
+              <IconButton
+                icon={Trash2}
+                size="sm"
+                variant="ghost"
                 onClick={(e) => handleDelete(session.id, e)}
-                title="Delete"
-              >
-                <Trash2 size={15} color="var(--text-muted)" />
-              </button>
+              />
               <div style={{ flex: 1 }} />
               <ChevronRight size={16} color="var(--text-muted)" style={{ opacity: 0.5 }} />
             </div>
-          </Glass>
+          </Card>
         ))}
       </div>
 
       {/* Clear all */}
       {sessions.length > 1 && (
-        <button style={styles.clearAllBtn} onClick={handleClearAll}>
+        <Button variant="danger" fullWidth onClick={handleClearAll}>
           Clear All History
-        </button>
+        </Button>
       )}
 
       <div style={{ height: 24 }} />

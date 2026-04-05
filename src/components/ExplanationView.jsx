@@ -5,6 +5,14 @@ import {
   MessageCircle, Brain, Send, Sparkles, Copy, Check, Share2, Layers, CloudOff,
   Heart, Globe, Download, X, RefreshCw, RotateCcw, Square, AlertTriangle, Bot, User
 } from 'lucide-react';
+import Button from '../lib/components/Button';
+import Card from '../lib/components/Card';
+import IconButton from '../lib/components/IconButton';
+import Chip from '../lib/components/Chip';
+import Modal from '../lib/components/Modal';
+import LanguageSelector from '../lib/components/LanguageSelector';
+import { useToggle, useThrottle } from '../lib/hooks';
+import { copyToClipboard, shareContent } from '../lib/utils';
 import speechService from '../services/speechService';
 import cacheService from '../services/cacheService';
 import exportService from '../services/exportService';
@@ -61,9 +69,9 @@ export default function ExplanationView({
   onRetry,
   onAbort,
 }) {
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSpeaking, , setSpeakingTrue, setSpeakingFalse] = useToggle(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [expandedImage, setExpandedImage] = useState(false);
+  const [expandedImage, , setExpandedTrue, setExpandedFalse] = useToggle(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [followUpQ, setFollowUpQ] = useState('');
   const [followUpLoading, setFollowUpLoading] = useState(false);
@@ -72,30 +80,21 @@ export default function ExplanationView({
   const [shared, setShared] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [bookmarked, setBookmarked] = useState(isBookmarked || false);
-  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const contentRef = useRef(null);
   const savedRef = useRef(false);
 
   // Adaptive streaming throttle based on device tier
   const THROTTLE_MS = adaptiveSettings.streamingThrottle;
   const [renderedExplanation, setRenderedExplanation] = useState(explanation);
-  const throttleRef = useRef(null);
+  const throttledExplanation = useThrottle(explanation, THROTTLE_MS);
 
   useEffect(() => {
     if (!isStreaming) {
       setRenderedExplanation(explanation);
-      if (throttleRef.current) { clearTimeout(throttleRef.current); throttleRef.current = null; }
       return;
     }
-    if (!throttleRef.current) {
-      throttleRef.current = setTimeout(() => {
-        setRenderedExplanation(explanation);
-        throttleRef.current = null;
-      }, THROTTLE_MS);
-    }
-  }, [explanation, isStreaming, THROTTLE_MS]);
-
-  useEffect(() => () => { if (throttleRef.current) clearTimeout(throttleRef.current); }, []);
+    setRenderedExplanation(throttledExplanation);
+  }, [throttledExplanation, isStreaming]);
 
   // Auto-scroll — throttled for low-end
   const scrollTimeoutRef = useRef(null);
@@ -139,36 +138,44 @@ export default function ExplanationView({
     });
   }, [explanation]);
 
-  const toggleSpeech = useCallback(() => {
+  const handleToggleSpeech = useCallback(() => {
     if (isSpeaking) {
       speechService.stop();
-      setIsSpeaking(false);
+      setSpeakingFalse();
     } else {
       speechService.speak(explanation, {
         language,
-        onEnd: () => setIsSpeaking(false)
+        onEnd: () => setSpeakingFalse()
       });
-      setIsSpeaking(true);
+      setSpeakingTrue();
     }
-  }, [isSpeaking, explanation, language]);
+  }, [isSpeaking, explanation, language, setSpeakingTrue, setSpeakingFalse]);
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(explanation);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await copyToClipboard(explanation);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
   }, [explanation]);
 
   const handleShare = useCallback(async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'LensLearn Explanation', text: explanation });
-      } catch (err) {
-        console.log('Share failed:', err);
-      }
-    } else {
-      handleCopy();
+    try {
+      await shareContent({
+        title: 'LensLearn Explanation',
+        text: explanation,
+        url: window.location.href
+      });
       setShared(true);
       setTimeout(() => setShared(false), 2000);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        await handleCopy();
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
     }
   }, [explanation, handleCopy]);
 
@@ -247,37 +254,21 @@ export default function ExplanationView({
     return visibleMessages;
   }, [visibleMessages, chatMessages, isStreaming, renderedExplanation]);
 
+  // Convert language string to LanguageSelector format
+  const languageOptions = LANGUAGES.map(lang => ({ code: lang, name: lang }));
+
   return (
     <div style={styles.container} className={adaptiveSettings.enableAnimations ? 'slide-up' : ''}>
-      {/* Language selector */}
+      {/* Language selector - using library component */}
       <div style={styles.topBar}>
-        <button
-          style={styles.languageBtn}
-          onClick={() => setShowLanguageSelector(!showLanguageSelector)}
-          title="Change explanation language"
-        >
-          <Globe size={16} />
-          <span>{language}</span>
-        </button>
-        {showLanguageSelector && (
-          <div style={styles.languageDropdown}>
-            {LANGUAGES.map(lang => (
-              <button
-                key={lang}
-                style={{
-                  ...styles.languageOption,
-                  ...(language === lang ? styles.languageOptionActive : {})
-                }}
-                onClick={() => {
-                  onLanguageChange?.(lang);
-                  setShowLanguageSelector(false);
-                }}
-              >
-                {lang}
-              </button>
-            ))}
-          </div>
-        )}
+        <LanguageSelector
+          value={language}
+          onChange={(code) => {
+            onLanguageChange?.(code);
+          }}
+          languages={languageOptions}
+          style={{ minWidth: 150 }}
+        />
       </div>
 
       {/* Image thumbnail */}
@@ -285,7 +276,7 @@ export default function ExplanationView({
         <div style={styles.imagePreviewContainer}>
           <button
             style={styles.imageThumbnail}
-            onClick={() => setExpandedImage(true)}
+            onClick={() => setExpandedTrue()}
             title="View full image"
           >
             <img src={imagePreview} alt="Original" style={styles.imageThumbnailImg} loading="lazy" />
@@ -293,74 +284,107 @@ export default function ExplanationView({
         </div>
       )}
 
-      {/* Expanded image modal */}
-      {expandedImage && imagePreview && (
-        <div style={styles.imageModalOverlay} onClick={() => setExpandedImage(false)}>
-          <button style={styles.imageCloseBtn} onClick={() => setExpandedImage(false)}>
-            <X size={24} />
-          </button>
-          <img src={imagePreview} alt="Original" style={styles.imageModalImg} loading="lazy" />
-        </div>
-      )}
+      {/* Expanded image modal - using library Modal component */}
+      <Modal
+        open={expandedImage}
+        onClose={() => setExpandedFalse()}
+        closable={true}
+        closeOnOverlay={true}
+        style={{ padding: 0 }}
+      >
+        <img src={imagePreview} alt="Original" style={styles.imageModalImg} loading="lazy" />
+      </Modal>
 
-      {/* Error card */}
+      {/* Error card - using library Card component */}
       {isMainExplanationError && (
-        <div style={styles.errorCard}>
-          <div style={styles.errorHeader}>
-            <AlertTriangle size={20} color="var(--error)" />
-            <span style={{ color: 'var(--error)', fontWeight: 600 }}>Unable to generate explanation</span>
-          </div>
-          <p style={styles.errorText}>{explanation}</p>
-          <button style={styles.retryButton} onClick={handleRetry}>
-            <RotateCcw size={16} />
-            Retry
-          </button>
-        </div>
+        <Card variant="default" style={styles.errorCard}>
+          <Card.Header
+            icon={<AlertTriangle size={20} color="var(--error)" />}
+            title="Unable to generate explanation"
+            style={{ marginBottom: 12 }}
+          />
+          <Card.Body style={styles.errorText}>
+            {explanation}
+          </Card.Body>
+          <Card.Footer>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<RotateCcw size={16} />}
+              onClick={handleRetry}
+            >
+              Retry
+            </Button>
+          </Card.Footer>
+        </Card>
       )}
 
-      {/* Explanation content - Chat format */}
-      <div style={styles.explanationCard} className="card">
-        <div style={styles.cardHeader}>
-          <div style={styles.cardTitle}>
-            <Sparkles size={18} color="var(--accent)" />
-            <span>Explanation</span>
-            {isCached && (
-              <div style={styles.offlineBadge}>
-                <CloudOff size={14} />
-                <span>Saved offline</span>
-              </div>
-            )}
-          </div>
-          <div style={styles.cardActions}>
-            <button style={styles.iconBtn} onClick={handleRetry} title="Refresh" disabled={isStreaming}>
-              <RefreshCw
-                size={18}
-                color={isRefreshing ? 'var(--primary-light)' : 'var(--text-secondary)'}
-                className={isRefreshing ? 'icon-spin' : ''}
+      {/* Explanation content - Card format with action buttons */}
+      <Card style={styles.explanationCard} variant="default">
+        <Card.Header
+          icon={<Sparkles size={18} color="var(--accent)" />}
+          title="Explanation"
+          action={
+            <div style={styles.cardActions}>
+              <IconButton
+                icon={<RefreshCw size={18} className={isRefreshing ? 'icon-spin' : ''} />}
+                onClick={handleRetry}
+                disabled={isStreaming}
+                title="Refresh"
+                variant="ghost"
+                size="sm"
               />
-            </button>
-            <button style={styles.iconBtn} onClick={toggleSpeech} title={isSpeaking ? 'Stop reading' : 'Read aloud'}>
-              {isSpeaking ? <VolumeX size={18} color="var(--accent)" /> : <Volume2 size={18} color="var(--text-secondary)" />}
-            </button>
-            <button style={styles.iconBtn} onClick={handleCopy} title="Copy">
-              {copied ? <Check size={18} color="var(--success)" /> : <Copy size={18} color="var(--text-secondary)" />}
-            </button>
-            <button style={styles.iconBtn} onClick={handleShare} title="Share">
-              {shared ? <Check size={18} color="var(--success)" /> : <Share2 size={18} color="var(--text-secondary)" />}
-            </button>
-            <button style={styles.iconBtn} onClick={handleToggleBookmark} title={bookmarked ? 'Remove bookmark' : 'Add bookmark'}>
-              {bookmarked ? <Heart size={18} color="var(--accent)" fill="var(--accent)" /> : <Heart size={18} color="var(--text-secondary)" />}
-            </button>
-            {isStreaming && (
-              <button style={styles.stopBtn} onClick={onAbort} title="Stop generation">
-                <Square size={16} />
-                Stop
-              </button>
-            )}
-          </div>
-        </div>
+              <IconButton
+                icon={isSpeaking ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                onClick={handleToggleSpeech}
+                title={isSpeaking ? 'Stop reading' : 'Read aloud'}
+                variant={isSpeaking ? 'primary' : 'ghost'}
+                size="sm"
+              />
+              <IconButton
+                icon={copied ? <Check size={18} /> : <Copy size={18} />}
+                onClick={handleCopy}
+                title="Copy"
+                variant={copied ? 'success' : 'ghost'}
+                size="sm"
+              />
+              <IconButton
+                icon={<Share2 size={18} />}
+                onClick={handleShare}
+                title="Share"
+                variant={shared ? 'success' : 'ghost'}
+                size="sm"
+              />
+              <IconButton
+                icon={<Heart size={18} fill={bookmarked ? 'currentColor' : 'none'} />}
+                onClick={handleToggleBookmark}
+                title={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
+                variant={bookmarked ? 'primary' : 'ghost'}
+                size="sm"
+              />
+              {isStreaming && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Square size={14} />}
+                  onClick={onAbort}
+                  title="Stop generation"
+                >
+                  Stop
+                </Button>
+              )}
+            </div>
+          }
+        />
 
-        <div ref={contentRef} style={styles.content}>
+        {isCached && (
+          <div style={{ ...styles.offlineBadge, marginBottom: 8, marginLeft: 0 }}>
+            <CloudOff size={14} />
+            <span>Saved offline</span>
+          </div>
+        )}
+
+        <Card.Body style={styles.content}>
           {/* Hidden message count */}
           {hiddenCount > 0 && (
             <div style={styles.hiddenBanner}>
@@ -389,47 +413,69 @@ export default function ExplanationView({
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Generating...</span>
             </div>
           )}
-        </div>
-      </div>
+        </Card.Body>
+      </Card>
 
-      {/* Suggested follow-up chips */}
+      {/* Suggested follow-up chips - using button elements with chip-like styling */}
       {!isStreaming && chatMessages.length > 0 && !followUpError && (
         <div style={styles.suggestedChipsContainer} className="slide-up">
           <div style={styles.suggestedChipsLabel}>Suggested follow-ups:</div>
           <div style={styles.suggestedChips} className="stagger-children">
-            {SUGGESTED_FOLLOW_UPS.map((chip, idx) => (
-              <button
+            {SUGGESTED_FOLLOW_UPS.map((chipText, idx) => (
+              <Chip
                 key={idx}
-                style={styles.chip}
-                onClick={() => handleFollowUp(chip)}
+                size="sm"
                 disabled={followUpLoading}
+                onClick={() => handleFollowUp(chipText)}
+                style={{ cursor: 'pointer', border: '1px solid var(--border)' }}
               >
-                {chip}
-              </button>
+                {chipText}
+              </Chip>
             ))}
           </div>
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons - using library Button component */}
       {!isStreaming && (
         <div style={styles.actions} className="stagger-children">
-          <button className="btn btn-secondary hover-lift" onClick={onGenerateQuiz} disabled={quizLoading}>
-            <Brain size={18} className={quizLoading ? 'icon-spin-slow' : ''} />
-            {quizLoading ? 'Generating...' : 'Quiz Me'}
-          </button>
-          <button className="btn btn-secondary hover-lift" onClick={onGenerateFlashcards} disabled={flashcardsLoading}>
-            <Layers size={18} className={flashcardsLoading ? 'icon-spin-slow' : ''} />
-            {flashcardsLoading ? 'Creating...' : 'Flashcards'}
-          </button>
-          <button className="btn btn-secondary hover-lift" onClick={onSimplify}>
-            <Sparkles size={18} />
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<Brain size={18} />}
+            onClick={onGenerateQuiz}
+            disabled={quizLoading}
+            loading={quizLoading}
+          >
+            Quiz Me
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<Layers size={18} />}
+            onClick={onGenerateFlashcards}
+            disabled={flashcardsLoading}
+            loading={flashcardsLoading}
+          >
+            Flashcards
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<Sparkles size={18} />}
+            onClick={onSimplify}
+          >
             Simplify
-          </button>
-          <button className="btn btn-secondary hover-lift" onClick={handleExportNotes} title="Export notes">
-            <Download size={18} />
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<Download size={18} />}
+            onClick={handleExportNotes}
+            title="Export notes"
+          >
             Save Notes
-          </button>
+          </Button>
         </div>
       )}
 
@@ -450,22 +496,28 @@ export default function ExplanationView({
               style={styles.input}
               disabled={followUpLoading}
             />
-            <button
-              style={{ ...styles.sendBtn, opacity: followUpQ.trim() ? 1 : 0.4 }}
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Send size={16} />}
               onClick={() => handleFollowUp()}
               disabled={!followUpQ.trim() || followUpLoading}
-            >
-              {followUpLoading ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : <Send size={18} />}
-            </button>
+              loading={followUpLoading}
+              style={{ width: 44, height: 44, padding: 0 }}
+            />
           </div>
 
           {followUpError && (
             <div style={styles.followUpErrorContainer}>
               <div style={styles.followUpErrorText}>{followUpError}</div>
-              <button style={styles.inlineRetryBtn} onClick={() => handleFollowUp()}>
-                <RotateCcw size={14} />
+              <Button
+                variant="danger"
+                size="xs"
+                icon={<RotateCcw size={12} />}
+                onClick={() => handleFollowUp()}
+              >
                 Retry
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -512,22 +564,6 @@ const mdStyles = {
 const styles = {
   container: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 },
   topBar: { display: 'flex', alignItems: 'center', position: 'relative', marginBottom: 8 },
-  languageBtn: {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
-    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-    color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  languageDropdown: {
-    position: 'absolute', top: '100%', left: 0, marginTop: 4,
-    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-    zIndex: 10, maxHeight: 240, overflowY: 'auto', minWidth: 120,
-    display: 'flex', flexDirection: 'column',
-  },
-  languageOption: {
-    padding: '8px 12px', background: 'none', border: 'none',
-    color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-  },
-  languageOptionActive: { background: 'rgba(99,102,241,0.15)', color: 'var(--primary-light)' },
   imagePreviewContainer: { display: 'flex', gap: 12, alignItems: 'center' },
   imageThumbnail: {
     width: 50, height: 50, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
@@ -535,47 +571,18 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   imageThumbnailImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  imageModalOverlay: {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  imageCloseBtn: {
-    position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)',
-    border: 'none', color: 'white', cursor: 'pointer', padding: 8, borderRadius: 'var(--radius)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
   imageModalImg: { maxWidth: '90%', maxHeight: '90%', borderRadius: 'var(--radius)', objectFit: 'contain' },
   errorCard: {
     background: 'rgba(239,68,68,0.1)', border: '1px solid var(--error)', borderRadius: 'var(--radius)',
     padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
   },
-  errorHeader: { display: 'flex', alignItems: 'center', gap: 8 },
   errorText: { color: 'var(--error)', fontSize: 14, lineHeight: 1.6, margin: 0 },
-  retryButton: {
-    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
-    background: 'var(--error)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer', fontSize: 14, fontWeight: 600, alignSelf: 'flex-start',
-  },
   explanationCard: { padding: 0, overflow: 'hidden' },
-  cardHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '14px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8,
-  },
-  cardTitle: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 15 },
   offlineBadge: {
     display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px',
     background: 'var(--bg-dark)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12, color: 'var(--text-secondary)',
   },
   cardActions: { display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' },
-  iconBtn: {
-    background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6,
-    display: 'flex', alignItems: 'center',
-  },
-  stopBtn: {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
-    background: 'var(--error)', border: 'none', color: 'white', borderRadius: 6,
-    cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
   content: {
     padding: '16px 20px 20px', maxHeight: '60vh', overflowY: 'auto',
     lineHeight: 1.7, fontSize: 15, color: 'var(--text-primary)',
@@ -594,11 +601,6 @@ const styles = {
   suggestedChipsContainer: { display: 'flex', flexDirection: 'column', gap: 8 },
   suggestedChipsLabel: { fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 },
   suggestedChips: { display: 'flex', gap: 8, flexWrap: 'wrap', overflowX: 'auto', paddingBottom: 4 },
-  chip: {
-    padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border)',
-    borderRadius: 'var(--radius)', color: 'var(--text-secondary)', fontSize: 13,
-    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
-  },
   actions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   followUp: { display: 'flex', flexDirection: 'column', gap: 8 },
   followUpLabel: { display: 'flex', alignItems: 'center', gap: 6 },
@@ -607,19 +609,9 @@ const styles = {
     flex: 1, padding: '12px 16px', background: 'var(--bg-input)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none',
   },
-  sendBtn: {
-    width: 44, height: 44, borderRadius: 'var(--radius)', background: 'var(--primary)',
-    border: 'none', color: 'white', cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
   followUpErrorContainer: {
     background: 'rgba(239,68,68,0.1)', border: '1px solid var(--error)', borderRadius: 'var(--radius)',
     padding: 12, display: 'flex', alignItems: 'center', gap: 8,
   },
   followUpErrorText: { color: 'var(--error)', fontSize: 14, flex: 1 },
-  inlineRetryBtn: {
-    display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px',
-    background: 'var(--error)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0,
-  },
 };

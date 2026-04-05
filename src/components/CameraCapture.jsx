@@ -5,6 +5,11 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 import ImageCropper from './ImageCropper';
+import Button from '../lib/components/Button';
+import IconButton from '../lib/components/IconButton';
+import Card from '../lib/components/Card';
+import Badge from '../lib/components/Badge';
+import { useToggle } from '../lib/hooks';
 import documentService from '../services/documentService';
 
 export default function CameraCapture({
@@ -27,10 +32,11 @@ export default function CameraCapture({
 }) {
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
-  const [showCropper, setShowCropper] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
-  const [showGrid, setShowGrid] = useState(false);
+  const [showCropper, setShowCropper] = useToggle(false);
+  const [isDragging, setIsDragging] = useToggle(false);
+  const [uploadError, setUploadError] = useToggle(false);
+  const [showGrid, setShowGrid] = useToggle(false);
+  const [uploadErrorMsg, setUploadErrorMsg] = useState(null);
   const [captureFlash, setCaptureFlash] = useState(false);
 
   const handleFileChange = (e) => {
@@ -40,7 +46,7 @@ export default function CameraCapture({
   };
 
   const handleFileWithType = async (file) => {
-    setUploadError(null);
+    setUploadErrorMsg(null);
     try {
       if (file.type.startsWith('image/')) {
         onFileUpload(file);
@@ -48,14 +54,15 @@ export default function CameraCapture({
         await onDocumentUpload?.(file);
       }
     } catch (err) {
-      setUploadError(err.message || 'Failed to process file');
+      setUploadErrorMsg(err.message || 'Failed to process file');
+      setUploadError(true);
     }
   };
 
-  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
-  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging.on(); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging.off(); };
   const handleDrop = (e) => {
-    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+    e.preventDefault(); e.stopPropagation(); setIsDragging.off();
     if (e.dataTransfer?.files?.[0]) handleFileWithType(e.dataTransfer.files[0]);
   };
 
@@ -65,9 +72,9 @@ export default function CameraCapture({
     onCapturePhoto();
   };
 
-  const handleCropComplete = (croppedImage) => { setShowCropper(false); onImageCropped?.(croppedImage); };
-  const handleSkipCrop = () => setShowCropper(false);
-  const handleRetakeCrop = () => { setShowCropper(false); onClearImage(); };
+  const handleCropComplete = (croppedImage) => { setShowCropper.off(); onImageCropped?.(croppedImage); };
+  const handleSkipCrop = () => setShowCropper.off();
+  const handleRetakeCrop = () => { setShowCropper.off(); onClearImage(); };
 
   // --- Cropper view ---
   if (capturedImage && showCropper) {
@@ -88,7 +95,7 @@ export default function CameraCapture({
 
     return (
       <div style={s.previewContainer} className="slide-up">
-        <div style={s.docCard} className="glass-card">
+        <Card variant="glass">
           {documentContent.preview && (
             <div style={s.docThumb}>
               <img src={documentContent.preview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -99,22 +106,22 @@ export default function CameraCapture({
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={s.docName}>{documentContent.fileName}</p>
               <div style={s.docMeta}>
-                <span className="gradient-badge">{typeLabel}</span>
+                <Badge>{typeLabel}</Badge>
                 {documentContent.pageCount && <span style={s.docPages}>{documentContent.pageCount} page{documentContent.pageCount !== 1 ? 's' : ''}</span>}
               </div>
             </div>
             {!isProcessing && (
-              <button style={s.xBtn} onClick={() => { onClearImage(); onClearDocument?.(); }}><X size={16} /></button>
+              <IconButton icon={X} size="sm" onClick={() => { onClearImage(); onClearDocument?.(); }} />
             )}
           </div>
-        </div>
+        </Card>
         <div style={s.actionRow} className="stagger-children">
-          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { onClearImage(); onClearDocument?.(); }} disabled={isProcessing}>
-            <RotateCcw size={18} /> Clear
-          </button>
-          <button className="btn btn-primary" style={{ flex: 2 }} onClick={onExplain} disabled={isProcessing}>
-            {isProcessing ? <><LoadingSpinner variant="scan" size="sm" /> Analyzing...</> : <><Sparkles size={18} /> Explain This</>}
-          </button>
+          <Button variant="secondary" icon={RotateCcw} style={{ flex: 1 }} onClick={() => { onClearImage(); onClearDocument?.(); }} disabled={isProcessing}>
+            Clear
+          </Button>
+          <Button variant="primary" icon={Sparkles} style={{ flex: 2 }} onClick={onExplain} disabled={isProcessing}>
+            {isProcessing ? <><LoadingSpinner variant="scan" size="sm" /> Analyzing...</> : <>Explain This</>}
+          </Button>
         </div>
       </div>
     );
@@ -127,19 +134,19 @@ export default function CameraCapture({
         <div style={s.imgWrapper} className="glow-border">
           <img src={capturedImage} alt="Captured" style={s.previewImg} />
           {!isProcessing && (
-            <button style={s.xBtnAbsolute} onClick={onClearImage}><X size={18} /></button>
+            <IconButton icon={X} variant="ghost" onClick={onClearImage} style={s.xBtnAbsolute} />
           )}
         </div>
         <div style={s.actionRow} className="stagger-children">
-          <button className="btn btn-secondary" onClick={onClearImage} disabled={isProcessing}>
-            <RotateCcw size={18} /> Retake
-          </button>
-          <button className="btn btn-secondary" onClick={() => setShowCropper(true)} disabled={isProcessing}>
-            <Crop size={18} /> Crop
-          </button>
-          <button className="btn btn-primary" style={{ flex: 2 }} onClick={onExplain} disabled={isProcessing}>
-            {isProcessing ? <><LoadingSpinner variant="scan" size="sm" /> Analyzing...</> : <><Sparkles size={18} /> Explain This</>}
-          </button>
+          <Button variant="secondary" icon={RotateCcw} onClick={onClearImage} disabled={isProcessing}>
+            Retake
+          </Button>
+          <Button variant="secondary" icon={Crop} onClick={() => setShowCropper.on()} disabled={isProcessing}>
+            Crop
+          </Button>
+          <Button variant="primary" icon={Sparkles} style={{ flex: 2 }} onClick={onExplain} disabled={isProcessing}>
+            {isProcessing ? <><LoadingSpinner variant="scan" size="sm" /> Analyzing...</> : <>Explain This</>}
+          </Button>
         </div>
       </div>
     );
@@ -152,22 +159,19 @@ export default function CameraCapture({
         {captureFlash && <div style={s.captureFlash} />}
 
         <div style={s.cameraTopBar} className="fade-in">
-          <button style={s.camTopBtn} onClick={onStopCamera} title="Close camera">
-            <X size={22} color="white" />
-          </button>
+          <IconButton icon={X} onClick={onStopCamera} variant="ghost" style={s.camTopBtn} />
           <div style={s.camTopCenter}>
-            <div style={s.camModeBadge}>
+            <Badge variant="glass">
               <Camera size={14} /> Photo
-            </div>
+            </Badge>
           </div>
           <div style={s.camTopRight}>
-            <button
-              style={{ ...s.camTopBtn, ...(showGrid ? { background: 'rgba(99,102,241,0.5)' } : {}) }}
-              onClick={() => setShowGrid(!showGrid)}
-              title="Toggle grid"
-            >
-              <Grid3X3 size={20} color="white" />
-            </button>
+            <IconButton
+              icon={Grid3X3}
+              onClick={() => showGrid ? setShowGrid.off() : setShowGrid.on()}
+              variant="ghost"
+              style={s.camTopBtn}
+            />
           </div>
         </div>
 
@@ -205,10 +209,9 @@ export default function CameraCapture({
 
         <div style={s.cameraControls}>
           <div style={s.controlsRow}>
-            <button style={s.camSideBtn} onClick={() => fileInputRef.current?.click()} title="Upload file">
-              <Upload size={22} color="white" />
-              <span style={s.camSideBtnLabel}>Gallery</span>
-            </button>
+            <Button variant="ghost" icon={Upload} onClick={() => fileInputRef.current?.click()}>
+              Gallery
+            </Button>
             <div style={s.captureWrap}>
               <button style={s.captureBtn} onClick={handleCapture}>
                 <div style={s.captureBtnOuter}>
@@ -216,10 +219,9 @@ export default function CameraCapture({
                 </div>
               </button>
             </div>
-            <button style={s.camSideBtn} onClick={onFlipCamera} title="Flip camera">
-              <SwitchCamera size={22} color="white" />
-              <span style={s.camSideBtnLabel}>{facingMode === 'user' ? 'Front' : 'Back'}</span>
-            </button>
+            <Button variant="ghost" icon={SwitchCamera} onClick={onFlipCamera}>
+              {facingMode === 'user' ? 'Front' : 'Back'}
+            </Button>
           </div>
         </div>
 
@@ -245,8 +247,8 @@ export default function CameraCapture({
 
       {uploadError && (
         <div style={s.errorBanner} className="slide-up">
-          <span>{uploadError}</span>
-          <button style={s.errorClose} onClick={() => setUploadError(null)}><X size={14} /></button>
+          <span>{uploadErrorMsg}</span>
+          <IconButton icon={X} size="sm" variant="ghost" onClick={() => setUploadError.off()} />
         </div>
       )}
 
@@ -275,7 +277,7 @@ export default function CameraCapture({
 
       {/* Upload cards — Glass style */}
       <div style={s.uploadGrid} className="stagger-children">
-        <button style={s.uploadCard} className="glass-card hover-lift" onClick={() => fileInputRef.current?.click()}>
+        <Card variant="glass" style={{ ...s.uploadCard, cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
           <div style={s.uploadIconWrap}>
             <Upload size={22} color="var(--primary-light)" />
           </div>
@@ -283,8 +285,8 @@ export default function CameraCapture({
             <span style={s.uploadCardTitle}>Image</span>
             <span style={s.uploadCardSub}>JPG, PNG, WebP</span>
           </div>
-        </button>
-        <button style={s.uploadCard} className="glass-card hover-lift" onClick={() => docInputRef.current?.click()}>
+        </Card>
+        <Card variant="glass" style={{ ...s.uploadCard, cursor: 'pointer' }} onClick={() => docInputRef.current?.click()}>
           <div style={{ ...s.uploadIconWrap, background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.2)' }}>
             <FileText size={22} color="var(--accent)" />
           </div>
@@ -292,7 +294,7 @@ export default function CameraCapture({
             <span style={s.uploadCardTitle}>Document</span>
             <span style={s.uploadCardSub}>PDF, DOCX, TXT</span>
           </div>
-        </button>
+        </Card>
       </div>
 
       {/* Drop zone — with animated border */}
@@ -315,11 +317,23 @@ export default function CameraCapture({
       <div style={s.stepsContainer} className="slide-up">
         <p style={s.stepsTitle}>How it works</p>
         <div style={s.stepsRow} className="stagger-children">
-          <StepItem num="1" icon={<Camera size={16} />} text="Capture" color="var(--primary)" />
+          <Card variant="glass" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 14px', minWidth: 70 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--primary)' }}>1</div>
+            <Camera size={16} color="var(--primary)" />
+            <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Capture</span>
+          </Card>
           <div style={s.stepConnector} />
-          <StepItem num="2" icon={<Eye size={16} />} text="AI Explains" color="var(--accent)" />
+          <Card variant="glass" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 14px', minWidth: 70 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>2</div>
+            <Eye size={16} color="var(--accent)" />
+            <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'center' }}>AI Explains</span>
+          </Card>
           <div style={s.stepConnector} />
-          <StepItem num="3" icon={<Zap size={16} />} text="Quiz" color="var(--success)" />
+          <Card variant="glass" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 14px', minWidth: 70 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--success)' }}>3</div>
+            <Zap size={16} color="var(--success)" />
+            <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Quiz</span>
+          </Card>
         </div>
       </div>
 
@@ -329,21 +343,6 @@ export default function CameraCapture({
   );
 }
 
-function StepItem({ num, icon, text, color }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 10,
-        background: `${color}15`, border: `1.5px solid ${color}30`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color,
-      }}>
-        {icon}
-      </div>
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{text}</span>
-    </div>
-  );
-}
 
 // ===== STYLES =====
 const s = {

@@ -3,10 +3,58 @@
   "private": true,
   "version": "1.1.0",
   "type": "module",
+  "description": "A reusable React component library for building accessible, AI-powered educational apps. Built for the Gemma 4 Good Hackathon.",
+  "author": "Dilli Prasath S <dilli.prasath@zohocorp.com>",
+  "license": "Apache-2.0",
+  "keywords": [
+    "react",
+    "component-library",
+    "education",
+    "ai",
+    "gemma",
+    "accessibility",
+    "pwa",
+    "design-system",
+    "ui-kit",
+    "lenslearn"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dilliprasath/lenslearn"
+  },
+  "homepage": "https://lenslearn.app",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:lib": "vite build --config vite.lib.config.js",
+    "preview": "vite preview",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "main": "./src/lib/index.js",
+  "module": "./src/lib/index.js",
+  "exports": {
+    ".": "./src/lib/index.js",
+    "./components": "./src/lib/components/index.js",
+    "./hooks": "./src/lib/hooks/index.js",
+    "./tokens": "./src/lib/tokens/index.js",
+    "./animations": "./src/lib/animations/index.js",
+    "./utils": "./src/lib/utils/index.js",
+    "./hoc": "./src/lib/hoc/index.js",
+    "./providers": "./src/lib/providers/index.js"
+  },
+  "files": [
+    "src/lib/",
+    "src/styles/index.css",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "src/styles/index.css"
+  ],
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   },
   "dependencies": {
     "lucide-react": "^0.462.0",
@@ -24,5 +72,8 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

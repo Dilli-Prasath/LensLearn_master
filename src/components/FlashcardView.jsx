@@ -1,5 +1,11 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, RotateCw, Check, X, Layers, Shuffle, Award } from 'lucide-react';
+import Button from '../lib/components/Button';
+import Card from '../lib/components/Card';
+import Badge from '../lib/components/Badge';
+import Progress from '../lib/components/Progress';
+import ProgressRing from '../lib/components/ProgressRing';
+import EmptyState from '../lib/components/EmptyState';
 
 export default function FlashcardView({ flashcards, onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -12,10 +18,12 @@ export default function FlashcardView({ flashcards, onClose }) {
   if (!flashcards || flashcards.length === 0) {
     return (
       <div style={styles.container}>
-        <div style={styles.emptyState} className="fade-in">
-          <Layers size={48} color="var(--text-muted)" />
-          <p style={{ color: 'var(--text-muted)', marginTop: 12 }}>No flashcards to display</p>
-        </div>
+        <EmptyState
+          icon={<Layers size={48} />}
+          title="No flashcards"
+          description="No flashcards to display"
+          className="fade-in"
+        />
       </div>
     );
   }
@@ -88,60 +96,64 @@ export default function FlashcardView({ flashcards, onClose }) {
 
     return (
       <div style={styles.container} className="fade-in">
-        <div style={styles.summary}>
-          <div className="bounce-in">
-            <Award size={48} color={allMastered ? '#f59e0b' : 'var(--primary-light)'} style={{ filter: allMastered ? 'drop-shadow(0 4px 12px rgba(245,158,11,0.4))' : 'none' }} />
-          </div>
-          <h2 style={styles.summaryTitle}>
-            {allMastered ? 'Perfect Score!' : 'Session Complete!'}
-          </h2>
+        <Card variant="elevated" style={styles.summary}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 20 }}>
+            <div className="bounce-in">
+              <Award size={48} color={allMastered ? '#f59e0b' : 'var(--primary-light)'} style={{ filter: allMastered ? 'drop-shadow(0 4px 12px rgba(245,158,11,0.4))' : 'none' }} />
+            </div>
+            <h2 style={styles.summaryTitle}>
+              {allMastered ? 'Perfect Score!' : 'Session Complete!'}
+            </h2>
 
-          {/* Visual score ring */}
-          <div style={{ position: 'relative', width: 100, height: 100 }}>
-            <svg width="100" height="100" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border)" strokeWidth="5" />
-              <circle
-                cx="50" cy="50" r="42"
-                fill="none" stroke="var(--success)" strokeWidth="5"
-                strokeDasharray={`${263.9 * (percentMastered / 100)} 263.9`}
-                strokeLinecap="round"
-                style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dasharray 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-              />
-            </svg>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{percentMastered}%</div>
+            {/* Progress ring */}
+            <ProgressRing
+              value={percentMastered}
+              size={100}
+              color="var(--success)"
+              showValue
+            />
+
+            {/* Stats Grid */}
+            <div style={styles.statsGrid} className="stagger-children">
+              <Card variant="outline" style={styles.statCard} className="hover-lift">
+                <Card.Stat
+                  label="Mastered"
+                  value={masteredCards.size}
+                  icon={<Check size={20} />}
+                  color="var(--success)"
+                />
+              </Card>
+              <Card variant="outline" style={styles.statCard} className="hover-lift">
+                <Card.Stat
+                  label="Review"
+                  value={reviewCards.size}
+                  icon={<RotateCw size={20} />}
+                  color="var(--warning)"
+                />
+              </Card>
+            </div>
+
+            <p style={styles.summarySubtext}>
+              {reviewCards.size > 0
+                ? `Focus on the ${reviewCards.size} card${reviewCards.size !== 1 ? 's' : ''} marked for review.`
+                : 'Great job reviewing all cards!'}
+            </p>
+
+            <div style={styles.summaryActions}>
+              <Button
+                variant="primary"
+                icon={<RotateCw size={18} />}
+                onClick={handleReset}
+                fullWidth
+              >
+                Study Again
+              </Button>
+              <Button variant="secondary" onClick={onClose} fullWidth>
+                Done
+              </Button>
             </div>
           </div>
-
-          <div style={styles.statsGrid} className="stagger-children">
-            <div style={{ ...styles.statCard, borderColor: 'var(--success)' }} className="hover-lift">
-              <Check size={20} color="var(--success)" />
-              <div style={styles.statNumber}>{masteredCards.size}</div>
-              <div style={styles.statLabel}>Mastered</div>
-            </div>
-            <div style={{ ...styles.statCard, borderColor: 'var(--warning)' }} className="hover-lift">
-              <RotateCw size={20} color="var(--warning)" />
-              <div style={styles.statNumber}>{reviewCards.size}</div>
-              <div style={styles.statLabel}>Review</div>
-            </div>
-          </div>
-
-          <p style={styles.summarySubtext}>
-            {reviewCards.size > 0
-              ? `Focus on the ${reviewCards.size} card${reviewCards.size !== 1 ? 's' : ''} marked for review.`
-              : 'Great job reviewing all cards!'}
-          </p>
-
-          <div style={styles.summaryActions}>
-            <button className="btn btn-primary" onClick={handleReset} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%' }}>
-              <RotateCw size={18} />
-              Study Again
-            </button>
-            <button className="btn btn-secondary" onClick={onClose} style={{ width: '100%' }}>
-              Done
-            </button>
-          </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -155,14 +167,15 @@ export default function FlashcardView({ flashcards, onClose }) {
             <Layers size={14} style={{ marginRight: 4 }} />
             {currentIndex + 1} / {flashcards.length}
           </span>
-          <span style={styles.masteredBadge}>
-            <Check size={12} style={{ marginRight: 3 }} />
+          <Badge variant="success" size="sm" icon={<Check size={12} />}>
             {masteredCards.size} mastered
-          </span>
+          </Badge>
         </div>
-        <div style={styles.progressBar}>
-          <div style={{ ...styles.progressFill, width: `${((currentIndex + 1) / flashcards.length) * 100}%` }} />
-        </div>
+        <Progress
+          value={currentIndex + 1}
+          max={flashcards.length}
+          size="md"
+        />
         {/* Card dots */}
         <div style={styles.cardDots}>
           {flashcards.map((_, i) => (
@@ -211,51 +224,46 @@ export default function FlashcardView({ flashcards, onClose }) {
 
       {/* Navigation */}
       <div style={styles.navigation}>
-        <button
-          className="btn btn-secondary"
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<ChevronLeft size={18} />}
           onClick={handlePrev}
           disabled={currentIndex === 0}
-          style={{ opacity: currentIndex === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px' }}
         >
-          <ChevronLeft size={18} />
           Prev
-        </button>
-        <button
-          className="btn btn-secondary"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          iconRight={<ChevronRight size={18} />}
           onClick={() => { setSlideDir(null); handleNext(); }}
           disabled={currentIndex >= flashcards.length - 1}
-          style={{ opacity: currentIndex >= flashcards.length - 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px' }}
         >
           Next
-          <ChevronRight size={18} />
-        </button>
+        </Button>
       </div>
 
       {/* Mastery buttons */}
       <div style={styles.masteryButtons}>
-        <button
-          style={{
-            ...styles.studyAgainBtn,
-            background: isReview ? 'var(--warning)' : 'transparent',
-            color: isReview ? 'white' : 'var(--warning)',
-            borderColor: 'var(--warning)',
-          }}
+        <Button
+          variant={isReview ? 'warning' : 'outline'}
+          icon={<X size={16} />}
           onClick={handleStudyAgain}
+          fullWidth
+          style={{ borderColor: 'var(--warning)', color: isReview ? 'white' : 'var(--warning)' }}
         >
-          <X size={16} />
           Study Again
-        </button>
+        </Button>
 
-        <button
-          style={{
-            ...styles.knowItBtn,
-            background: isMastered ? 'var(--success)' : 'var(--primary)',
-          }}
+        <Button
+          variant={isMastered ? 'success' : 'primary'}
+          icon={<Check size={16} />}
           onClick={handleKnowIt}
+          fullWidth
         >
-          <Check size={16} />
           {isMastered ? 'Got it!' : 'Know It'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -270,25 +278,11 @@ const styles = {
     height: '100%',
     overflowY: 'auto',
   },
-  emptyState: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    justifyContent: 'center', padding: 40, textAlign: 'center',
-  },
 
   // Progress
   progress: { display: 'flex', flexDirection: 'column', gap: 8 },
   progressInfo: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   cardCounter: { display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13 },
-  masteredBadge: {
-    display: 'flex', alignItems: 'center',
-    background: 'rgba(16,185,129,0.15)', color: 'var(--success)',
-    padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-  },
-  progressBar: { height: 4, background: 'var(--bg-card)', borderRadius: 2, overflow: 'hidden' },
-  progressFill: {
-    height: '100%', background: 'linear-gradient(90deg, var(--primary), var(--accent))',
-    transition: 'width 0.4s ease',
-  },
   cardDots: {
     display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap',
   },
@@ -334,33 +328,16 @@ const styles = {
   // Navigation
   navigation: { display: 'flex', gap: 12, justifyContent: 'center' },
   masteryButtons: { display: 'flex', gap: 12, justifyContent: 'center' },
-  studyAgainBtn: {
-    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    padding: '12px 20px', fontSize: 14, fontWeight: 600,
-    borderRadius: 'var(--radius)', border: '2px solid',
-    cursor: 'pointer', transition: 'all 0.25s',
-  },
-  knowItBtn: {
-    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    padding: '12px 20px', fontSize: 14, fontWeight: 600,
-    color: 'white', borderRadius: 'var(--radius)', border: 'none',
-    cursor: 'pointer', transition: 'all 0.25s',
-  },
 
   // Summary
   summary: {
-    display: 'flex', flexDirection: 'column', gap: 20,
-    alignItems: 'center', padding: 24,
+    padding: 24,
   },
   summaryTitle: { fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' },
   statsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, width: '100%', maxWidth: 280 },
   statCard: {
-    background: 'var(--bg-card)', border: '2px solid',
-    borderRadius: 'var(--radius)', padding: 16,
-    textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+    padding: 16,
   },
-  statNumber: { fontSize: 28, fontWeight: 800, color: 'var(--text-primary)' },
-  statLabel: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 },
   summarySubtext: { textAlign: 'center', color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 14 },
   summaryActions: { display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 280 },
 };

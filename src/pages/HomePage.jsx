@@ -2,6 +2,10 @@ import { TrendingUp, BookOpen, Languages, Flame, ArrowRight, Target, Trophy, Spa
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHistoryStore, useSettingsStore } from '../store';
+import Card from '../lib/components/Card';
+import Button from '../lib/components/Button';
+import Badge from '../lib/components/Badge';
+import EmptyState from '../lib/components/EmptyState';
 
 const QUOTES = [
   'Every expert was once a beginner.',
@@ -96,7 +100,7 @@ export default function HomePage() {
       </div>
 
       {/* Daily Goal — Glass Card */}
-      <div style={st.dailyGoal} className="glass-card pop-in">
+      <Card variant="glass" style={st.dailyGoal} className="pop-in">
         <div style={st.dailyGoalHeader}>
           <div style={st.dailyGoalLeft}>
             <div style={st.goalIconWrap}>
@@ -119,29 +123,35 @@ export default function HomePage() {
             <span>Goal crushed!</span>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Primary CTA — Scan Button with Glow */}
-      <button style={st.scanCTA} className="glow-border hover-lift" onClick={onScanClick}>
-        <div style={st.scanCTAInner}>
-          <div style={st.scanCTAIconWrap}>
-            <div style={st.scanCTAOrbit} className="orbit-ring" />
-            <Camera size={26} />
-          </div>
-          <div style={st.scanCTAText}>
-            <span style={st.scanCTALabel}>Scan & Learn</span>
-            <span style={st.scanCTASub}>Point your camera at any textbook page</span>
-          </div>
-          <ArrowRight size={18} color="var(--text-muted)" />
+      <Button
+        variant="primary"
+        icon={Camera}
+        fullWidth
+        style={st.scanCTA}
+        className="glow-border hover-lift"
+        onClick={onScanClick}
+      >
+        <div style={st.scanCTAText}>
+          <span style={st.scanCTALabel}>Scan & Learn</span>
+          <span style={st.scanCTASub}>Point your camera at any textbook page</span>
         </div>
-      </button>
+      </Button>
 
       {stats.totalScans > 0 && (
-        <button style={st.continueCTA} className="hover-lift" onClick={onHistoryClick}>
-          <Clock size={18} color="var(--primary-light)" />
-          <span style={st.continueCTALabel}>Continue where you left off</span>
-          <ChevronRight size={16} color="var(--text-muted)" />
-        </button>
+        <Button
+          variant="secondary"
+          icon={Clock}
+          iconRight={ChevronRight}
+          fullWidth
+          style={st.continueCTA}
+          className="hover-lift"
+          onClick={onHistoryClick}
+        >
+          Continue where you left off
+        </Button>
       )}
 
       {/* Stats — Bento Grid */}
@@ -157,15 +167,15 @@ export default function HomePage() {
         <div style={st.section} className="fade-in">
           <div style={st.sectionHeader}>
             <h2 style={st.sectionTitle}><Trophy size={16} /> Achievements</h2>
-            <span className="gradient-badge">{earnedAchievements.length}/{ACHIEVEMENTS.length}</span>
+            <Badge variant="gradient">{earnedAchievements.length}/{ACHIEVEMENTS.length}</Badge>
           </div>
           <div style={st.achievementScroll}>
             <div style={st.achievementRow} className="stagger-children">
               {earnedAchievements.map(a => (
-                <div key={a.id} style={st.achievementCard} className="glass-card">
+                <Card key={a.id} variant="glass" style={st.achievementCard}>
                   <span style={st.achievementIcon}>{a.icon}</span>
                   <span style={st.achievementTitle}>{a.title}</span>
-                </div>
+                </Card>
               ))}
             </div>
           </div>
@@ -176,7 +186,7 @@ export default function HomePage() {
       {settings.showTips !== false && (
         <div style={st.section} className="fade-in">
           <h2 style={st.sectionTitle}><Zap size={16} /> Study Tips</h2>
-          <div style={st.tipCard} className="glass-card" key={currentTipIndex}>
+          <Card variant="glass" style={st.tipCard} key={currentTipIndex}>
             <div style={st.tipIconCircle}>
               <span style={st.tipIcon}>{STUDY_TIPS[currentTipIndex].icon}</span>
             </div>
@@ -184,7 +194,7 @@ export default function HomePage() {
               <div style={st.tipTitle}>{STUDY_TIPS[currentTipIndex].title}</div>
               <div style={st.tipText}>{STUDY_TIPS[currentTipIndex].tip}</div>
             </div>
-          </div>
+          </Card>
           <div style={st.tipDots}>
             {STUDY_TIPS.map((_, idx) => (
               <div
@@ -204,12 +214,12 @@ export default function HomePage() {
         <h2 style={st.sectionTitle}><Star size={16} /> Quick Subjects</h2>
         <div style={st.subjectGrid} className="responsive-grid-3 stagger-children">
           {QUICK_SUBJECTS.map(subject => (
-            <button key={subject.name} style={st.subjectBtn} className="hover-lift" onClick={onScanClick}>
+            <Button key={subject.name} variant="secondary" fullWidth style={st.subjectBtn} className="hover-lift" onClick={onScanClick}>
               <div style={{ ...st.subjectIconBg, background: `${subject.color}15`, borderColor: `${subject.color}30` }}>
                 <span style={st.subjectIcon}>{subject.icon}</span>
               </div>
               <div style={st.subjectName}>{subject.name}</div>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -219,11 +229,13 @@ export default function HomePage() {
         <div style={st.section} className="fade-in">
           <div style={st.sectionHeader}>
             <h2 style={st.sectionTitle}><Clock size={16} /> Recent</h2>
-            <button style={st.viewAllBtn} onClick={onHistoryClick}>View all <ArrowRight size={14} /></button>
+            <Button variant="ghost" iconRight={ArrowRight} onClick={onHistoryClick} style={{ fontSize: 13 }}>
+              View all
+            </Button>
           </div>
           <div style={st.recentList} className="stagger-children">
             {recentSessions.map(session => (
-              <div key={session.id} style={st.recentItem} className="glass-card hover-lift" onClick={onHistoryClick}>
+              <Card key={session.id} variant="glass" style={st.recentItem} className="hover-lift" onClick={onHistoryClick}>
                 <div style={st.recentImageWrap}>
                   <img src={session.image} alt={session.subject} style={st.recentImage} loading="lazy" />
                   <div style={st.recentImageOverlay} />
@@ -235,21 +247,21 @@ export default function HomePage() {
                   </div>
                 </div>
                 <ChevronRight size={16} color="var(--text-muted)" />
-              </div>
+              </Card>
             ))}
           </div>
         </div>
       )}
 
       {/* Motivational Quote — Elegant Glass */}
-      <div style={st.quoteCard} className="glass-card fade-in">
+      <Card variant="glass" style={st.quoteCard} className="fade-in">
         <div style={st.quoteMark}>"</div>
         <p style={st.quoteText} className="shimmer-text">{quote}</p>
         <div style={st.quoteAttr}>
           <Sparkles size={12} color="var(--primary-light)" />
           <span style={st.quoteLabel}>Daily Inspiration</span>
         </div>
-      </div>
+      </Card>
 
       <div style={{ height: 24 }} />
     </div>
@@ -268,19 +280,19 @@ function Camera({ size = 24 }) {
 function BentoStat({ icon: Icon, label, value, color, size = 'normal' }) {
   const isLarge = size === 'large';
   return (
-    <div
+    <Card
+      variant="glass"
       style={{
         ...st.bentoCard,
         ...(isLarge ? st.bentoLarge : {}),
       }}
-      className="glass-card"
     >
       <div style={{ ...st.bentoIcon, color, background: `${color}18` }}>
         <Icon size={isLarge ? 22 : 18} />
       </div>
       <div style={{ ...st.bentoValue, fontSize: isLarge ? 28 : 20 }}>{value}</div>
       <div style={st.bentoLabel}>{label}</div>
-    </div>
+    </Card>
   );
 }
 
