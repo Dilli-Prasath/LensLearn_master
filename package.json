@@ -1,7 +1,7 @@
 {
   "name": "lenslearn",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "description": "A reusable React component library for building accessible, AI-powered educational apps. Built for the Gemma 4 Good Hackathon.",
   "author": "Dilli Prasath S <dilli.prasath@zohocorp.com>",
