@@ -2,8 +2,39 @@
 
 > "Point your lens. Learn anything."
 >
-> Last updated: April 4, 2026
+> Last updated: April 5, 2026
 > Author: Dilli Prasath S
+
+---
+
+## Table of Contents
+
+1. [What is LensLearn?](#what-is-lenslearn)
+2. [Tech Stack at a Glance](#tech-stack-at-a-glance)
+3. [Prerequisites](#prerequisites-install-these-first)
+4. [Getting Started](#getting-started-step-by-step)
+5. [Project Structure](#project-structure)
+6. [How Routing Works](#how-routing-works)
+7. [How State Management Works](#how-state-management-works-zustand)
+8. [How the AI Works](#how-the-ai-works)
+9. [No Database Needed](#no-database-needed)
+10. [Important Files to Know](#important-files-to-know)
+11. [Component Library](#component-library)
+12. [Components Reference](#components-reference)
+13. [Custom Hooks](#custom-hooks)
+14. [Design Tokens & Theming](#design-tokens--theming)
+15. [Animation System](#animation-system)
+16. [Utility Functions](#utility-functions)
+17. [Higher-Order Components](#higher-order-components)
+18. [Providers](#providers)
+19. [AI Model System](#ai-model-system)
+20. [Build & Publish](#build--publish)
+21. [Architecture Patterns](#architecture-patterns)
+22. [Adding New Features](#adding-new-features)
+23. [HACKATHON ROADMAP](#hackathon-roadmap-what-remains)
+24. [Common Issues & Fixes](#common-issues--fixes)
+25. [Quick Reference Commands](#quick-reference-commands)
+26. [Contact](#contact)
 
 ---
 
@@ -131,8 +162,26 @@ lenslearn/
 │   ├── main.jsx            ← React entry point (mounts RouterProvider)
 │   ├── router.jsx          ← All route definitions (12 routes)
 │   │
+│   ├── config/
+│   │   └── models.js       ← AI model registry (single source of truth)
+│   │
 │   ├── layouts/
 │   │   └── AppLayout.jsx   ← Root layout (Header + page + BottomNav)
+│   │
+│   ├── lib/                ← Publishable component library (~5,300 lines)
+│   │   ├── index.js        ← Main barrel export
+│   │   ├── components/     ← 19 UI components
+│   │   │   ├── Button.jsx
+│   │   │   ├── Card.jsx
+│   │   │   ├── Modal.jsx
+│   │   │   ├── ModelSelector.jsx
+│   │   │   └── [more components...]
+│   │   ├── hooks/          ← 19 custom React hooks
+│   │   ├── tokens/         ← Design tokens (colors, spacing, typography)
+│   │   ├── animations/     ← 20+ keyframe animations
+│   │   ├── utils/          ← 16 utility functions
+│   │   ├── hoc/            ← 6 Higher-Order Components
+│   │   └── providers/      ← Theme & Accessibility providers
 │   │
 │   ├── pages/              ← One file per route (lazy-loaded)
 │   │   ├── HomePage.jsx         Dashboard with stats, tips, recent scans
@@ -288,13 +337,16 @@ const success = await generateQuiz('English');
 ```
 
 ### Store 4: `useConnectionStore` (not persisted)
-Ollama connection status — polls every 30 seconds.
+Ollama connection status — polls every 30 seconds. Supports model switching via `switchModel`.
 
 ```jsx
 import { useConnectionStore } from '../store';
 
 const status = useConnectionStore((s) => s.status);
 // status = { connected: true, model: 'gemma4:e4b', models: [...] }
+
+const switchModel = useConnectionStore((s) => s.switchModel);
+switchModel('gemma4:27b');
 ```
 
 ### Key Rule
@@ -367,6 +419,760 @@ If you're fixing a bug or adding a feature, here's where to look:
 | Change settings options          | `src/components/SettingsPanel.jsx`  |
 | Change PWA config                | `vite.config.js`                    |
 | Change the home dashboard        | `src/pages/HomePage.jsx`            |
+| AI model registry                | `src/config/models.js`              |
+| Component library & model picker | `src/lib/components/ModelSelector.jsx` |
+
+
+---
+
+
+## Component Library
+
+The library lives in `src/lib/` and is designed to be published as `@lenslearn/ui`. Every component uses `forwardRef` + `memo` for optimal performance and ref forwarding.
+
+### Import Patterns
+
+```jsx
+// Import from barrel (recommended)
+import { Button, Card, Badge, Modal } from '../lib/components';
+
+// Import individual component
+import Button from '../lib/components/Button';
+
+// Import hooks
+import { useDebounce, useToggle, useBreakpoint } from '../lib/hooks';
+
+// Import tokens
+import { createTheme, colorPrimitives, shadows } from '../lib/tokens';
+
+// Import animations
+import { animate, stagger, preloadAnimations } from '../lib/animations';
+
+// Import utilities
+import { cn, mergeStyles, copyToClipboard } from '../lib/utils';
+
+// Import HOCs
+import { withErrorBoundary, withLazyLoad } from '../lib/hoc';
+```
+
+### Icon Handling
+
+All library components that accept an `icon` prop support both JSX elements and component references. This means both patterns work:
+
+```jsx
+// JSX element (explicit)
+<Button icon={<Camera size={18} />}>Scan</Button>
+
+// Component reference (auto-rendered with default size)
+<Button icon={Camera}>Scan</Button>
+```
+
+This is handled internally by a `renderIcon()` helper in each component that detects whether the prop is already a React element or a component reference.
+
+
+---
+
+
+## Components Reference
+
+### Button
+
+Polymorphic, accessible button with 7 variants and 5 sizes.
+
+```jsx
+<Button variant="primary" size="lg" icon={Camera}>Scan</Button>
+<Button as="a" href="/about" variant="ghost">About</Button>
+<Button variant="outline" loading>Processing...</Button>
+<Button variant="glass" pill fullWidth>Full Width Pill</Button>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `as` | `string \| Component` | `'button'` | Render as different element |
+| `variant` | `'primary' \| 'secondary' \| 'ghost' \| 'outline' \| 'danger' \| 'success' \| 'glass'` | `'primary'` | Visual style |
+| `size` | `'xs' \| 'sm' \| 'md' \| 'lg' \| 'xl'` | `'md'` | Size preset |
+| `icon` | `ReactNode \| Component` | — | Left icon |
+| `iconRight` | `ReactNode \| Component` | — | Right icon |
+| `loading` | `boolean` | `false` | Show spinner |
+| `disabled` | `boolean` | `false` | Disabled state |
+| `fullWidth` | `boolean` | `false` | Full container width |
+| `pill` | `boolean` | `false` | Pill-shaped border radius |
+
+### Card
+
+Composable card with compound sub-components.
+
+```jsx
+<Card variant="glass" hoverable onClick={handleClick}>
+  <Card.Header title="Quiz Results" icon={<Trophy />} action={<Badge>New</Badge>} />
+  <Card.Body>Content here</Card.Body>
+  <Card.Footer>
+    <Button>Continue</Button>
+  </Card.Footer>
+</Card>
+
+<Card.Stat icon={TrendingUp} label="Scans" value={42} color="#6366f1" />
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `as` | `string \| Component` | `'div'` | Polymorphic root element |
+| `variant` | `'default' \| 'elevated' \| 'glass' \| 'outline' \| 'gradient' \| 'interactive'` | `'default'` | Visual style |
+| `hoverable` | `boolean` | `false` | Lift on hover |
+| `padding` | `'none' \| 'sm' \| 'md' \| 'lg'` | `'md'` | Inner padding |
+
+**Sub-components:** `Card.Header` (title, subtitle, icon, action), `Card.Body`, `Card.Footer`, `Card.Stat` (label, value, icon, trend, color).
+
+### IconButton
+
+Circular icon-only button with optional badge.
+
+```jsx
+<IconButton icon={Settings} label="Settings" onClick={handleClick} />
+<IconButton icon={Bell} badge={3} variant="filled" />
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `icon` | `ReactNode \| Component` | — | Icon to display |
+| `label` | `string` | — | Accessible label (aria-label + title) |
+| `variant` | `'ghost' \| 'filled' \| 'primary' \| 'glass'` | `'ghost'` | Visual style |
+| `size` | `'xs' \| 'sm' \| 'md' \| 'lg' \| 'xl'` | `'md'` | Size preset |
+| `badge` | `number \| string` | — | Badge count overlay |
+| `active` | `boolean` | `false` | Active/selected state |
+
+### Badge
+
+Status and label badges.
+
+```jsx
+<Badge variant="success">Connected</Badge>
+<Badge variant="warning" dot pulse>Pending</Badge>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `variant` | `'default' \| 'primary' \| 'success' \| 'warning' \| 'error' \| 'info'` | `'default'` | Color variant |
+| `size` | `'xs' \| 'sm' \| 'md' \| 'lg'` | `'sm'` | Size preset |
+| `dot` | `boolean` | `false` | Show status dot |
+| `pulse` | `boolean` | `false` | Animate dot |
+| `pill` | `boolean` | `true` | Pill shape |
+| `icon` | `ReactNode \| Component` | — | Leading icon |
+
+### Chip
+
+Selectable tag/filter chips.
+
+```jsx
+<Chip selected onSelect={toggle} icon={<BookOpen />}>Science</Chip>
+<Chip onRemove={handleRemove}>Tag</Chip>
+```
+
+### Input
+
+Accessible form input with icon and label support.
+
+```jsx
+<Input label="Email" type="email" placeholder="you@example.com" />
+<Input as="textarea" label="Notes" rows={4} />
+<Input icon={Search} placeholder="Search..." />
+```
+
+### Toggle
+
+Accessible toggle switch.
+
+```jsx
+<Toggle label="Dark Mode" description="Enable dark theme" value={enabled} onChange={setEnabled} />
+```
+
+### Modal
+
+Dialog with backdrop, focus trap, and escape-to-close.
+
+```jsx
+<Modal open={isOpen} onClose={close} title="Confirm" size="sm">
+  <p>Are you sure?</p>
+  <Modal.Actions>
+    <Button variant="ghost" onClick={close}>Cancel</Button>
+    <Button variant="danger" onClick={confirm}>Delete</Button>
+  </Modal.Actions>
+</Modal>
+```
+
+### Progress
+
+Linear progress bar with label.
+
+```jsx
+<Progress value={75} max={100} label="75% Complete" variant="primary" />
+```
+
+### ProgressRing / ScoreRing
+
+SVG circular progress indicators.
+
+```jsx
+<ProgressRing value={75} max={100} size={64} strokeWidth={4} />
+<ScoreRing score={85} size={80} />  {/* Shows letter grade */}
+```
+
+### EmptyState
+
+Placeholder for empty screens.
+
+```jsx
+<EmptyState
+  icon={Inbox}
+  title="No messages"
+  description="You're all caught up!"
+  action={<Button>Create Message</Button>}
+  size="md"
+/>
+```
+
+### Toast
+
+Toast notification system with provider and hook.
+
+```jsx
+// Wrap app with ToastProvider
+<ToastProvider>
+  <App />
+</ToastProvider>
+
+// Use in any component
+const { addToast } = useToast();
+addToast({ type: 'success', message: 'Saved!' });
+addToast({ type: 'error', message: 'Failed', duration: 5000 });
+```
+
+### ModelSelector
+
+AI model picker with two display modes.
+
+```jsx
+// Compact — inline dropdown (for headers, hero sections)
+<ModelSelector
+  variant="compact"
+  models={['gemma4:e4b', 'gemma3:4b']}
+  activeModel="gemma4:e4b"
+  preferredModel="gemma4:e4b"
+  connected={true}
+  onSelect={(id) => switchModel(id)}
+/>
+
+// Full — card list (for settings pages)
+<ModelSelector
+  variant="full"
+  models={connectionStatus.models}
+  activeModel={connectionStatus.model}
+  preferredModel={settings.preferredModel}
+  connected={connectionStatus.connected}
+  onSelect={(id) => switchModel(id)}
+/>
+```
+
+### Other Components
+
+**ChatThread** — Renders a conversation thread with message bubbles, timestamps, and typing indicators. **LanguageSelector** — Dropdown picker for 15+ languages. **Dropdown** — Generic dropdown with keyboard navigation, search, and multi-select. **Skeleton** — Loading placeholder with shimmer animation. **Tooltip** — Lightweight hover tooltip.
+
+
+---
+
+
+## Custom Hooks
+
+Import from `'../lib/hooks'`.
+
+### Performance & Timing
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useDebounce` | `(value, delay = 300)` | Debounced value |
+| `useDebouncedCallback` | `(callback, delay = 300)` | Debounced function |
+| `useThrottle` | `(value, interval = 200)` | Throttled value |
+| `useThrottledCallback` | `(callback, interval = 200)` | Throttled function |
+| `useCountdown` | `(targetDate)` | `{ days, hours, minutes, seconds, expired }` |
+
+### Responsive & Layout
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useMediaQuery` | `(query: string)` | `boolean` |
+| `useBreakpoint` | `()` | `{ isMobile, isTablet, isDesktop, isLarge, breakpoint }` |
+
+### DOM & Events
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useClickOutside` | `(ref, handler)` | `void` |
+| `useKeyboard` | `(keyMap, options?)` | `void` |
+| `useIntersectionObserver` | `(options?)` | `[ref, entry]` |
+| `useEventListener` | `(eventName, handler, element?)` | `void` |
+| `useScrollPosition` | `()` | `{ x, y }` |
+
+### State Management
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useLocalStorage` | `(key, initialValue)` | `[value, setValue, removeValue]` |
+| `useToggle` | `(initial = false)` | `[value, toggle, setTrue, setFalse]` |
+| `usePrevious` | `(value)` | Previous value |
+| `useMounted` | `()` | `ref` with `.current` boolean |
+| `useAsync` | `(asyncFn, immediate?)` | `{ execute, value, error, loading, reset }` |
+
+### Gesture & Interaction
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useLongPress` | `(callback, options?)` | `{ onMouseDown, onMouseUp, onMouseLeave, onTouchStart, onTouchEnd }` |
+| `useSwipe` | `(ref, handlers)` | `void` (calls `onSwipeLeft`, `onSwipeRight`, `onSwipeUp`, `onSwipeDown`) |
+
+### Usage Examples
+
+```jsx
+// Debounce a search input
+const [query, setQuery] = useState('');
+const debouncedQuery = useDebounce(query, 300);
+
+// Toggle with named on/off
+const [isOpen, toggleOpen, openMenu, closeMenu] = useToggle(false);
+
+// Responsive layout
+const { isMobile, isTablet } = useBreakpoint();
+
+// Click outside to close
+const menuRef = useRef();
+useClickOutside(menuRef, closeMenu);
+
+// Keyboard shortcuts
+useKeyboard({
+  'Escape': closeModal,
+  'ctrl+s': saveDocument,
+  'ctrl+shift+p': openCommandPalette,
+});
+```
+
+
+---
+
+
+## Design Tokens & Theming
+
+Import from `'../lib/tokens'`.
+
+### Color System
+
+**Color Primitives** — 12 full palettes (50–950 shades): `slate`, `indigo`, `emerald`, `amber`, `red`, `blue`, `purple`, `cyan`, `pink`, `orange`, `green`, `lime`.
+
+**Semantic Colors** — `primary`, `secondary`, `success`, `warning`, `error`, `info` (each with base, light, dark variants).
+
+**10 Accent Profiles** — `indigo`, `blue`, `purple`, `pink`, `orange`, `green`, `red`, `cyan`, `lime`, `amber`. Each provides `main`, `light`, `dark`, `glow` values.
+
+**5 Theme Presets** — `dark`, `midnight`, `amoled`, `light`, `sepia`. Each defines `bg-primary`, `bg-secondary`, `bg-tertiary`, `text-primary`, `text-secondary`, `text-tertiary`, `border` tokens.
+
+### Spacing Scale
+
+Base unit: 4px. Tokens: `0`, `px` (1px), `0.5` (2px), `1` (4px), `2` (8px), `3` (12px), `4` (16px), `5` (20px), `6` (24px), `8` (32px), `10` (40px), `12` (48px), `16` (64px), `20` (80px), `24` (96px), `32` (128px).
+
+### Typography
+
+Families: `sans` (Inter), `mono` (JetBrains Mono). Sizes: `xs` (12px) to `5xl` (48px). Weights: `light` (300) to `extrabold` (800). Line heights: `none` (1) to `loose` (2).
+
+### Shadows
+
+`none`, `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, `inner`, `glow(color)`, `glass`.
+
+### Creating & Applying Themes
+
+```js
+import { createTheme, applyThemeToDOM } from '../lib/tokens';
+
+// Create a custom theme
+const theme = createTheme('midnight', 'purple', {
+  '--custom-var': '#ff0000',
+});
+
+// Apply to DOM (sets CSS custom properties on :root)
+applyThemeToDOM(theme);
+```
+
+### `sx` Style Helpers
+
+```js
+import { sx } from '../lib/tokens';
+
+// Pre-built style objects
+sx.flexCenter    // { display: 'flex', alignItems: 'center', justifyContent: 'center' }
+sx.flexBetween   // { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+sx.glass         // backdrop-filter blur effect
+sx.truncate      // single-line text truncation
+sx.absoluteFill  // position: absolute, inset: 0
+sx.transition()  // transition helper
+sx.gradient()    // linear gradient helper
+```
+
+
+---
+
+
+## Animation System
+
+Import from `'../lib/animations'`.
+
+### Available Animations
+
+`fadeIn`, `slideUp`, `slideInLeft`, `slideInRight`, `bounceIn`, `popIn`, `scaleIn`, `pulse`, `spin`, `shimmer`, `breathe`, `dotBounce`, `confettiFall`, `headShake`, `ripplePulse`, `float`, `glow`, `morphBlob`, `orbitSpin`, `gradientShift`, `scanLine`.
+
+### Usage
+
+```jsx
+import { animate, stagger, preloadAnimations } from '../lib/animations';
+
+// Call once on app mount
+preloadAnimations();
+
+// Apply to elements
+<div style={animate('fadeIn', '0.3s', 'ease-out')}>Fading in</div>
+<div style={animate('slideUp', '0.4s', 'spring')}>Sliding up</div>
+
+// Stagger children
+{items.map((item, i) => (
+  <div key={item.id} style={{ ...animate('popIn'), ...stagger(i) }}>
+    {item.name}
+  </div>
+))}
+```
+
+### Animation Factories
+
+```jsx
+import {
+  createPulseAnimation,
+  createSpinAnimation,
+  createFloatAnimation,
+  createShimmerAnimation,
+} from '../lib/animations';
+
+<div style={createPulseAnimation(2)}>Pulsing</div>
+<div style={createSpinAnimation(1, 'reverse')}>Spinning</div>
+<div style={createFloatAnimation(4, 10)}>Floating</div>
+<div style={createShimmerAnimation(2)}>Loading...</div>
+```
+
+
+---
+
+
+## Utility Functions
+
+Import from `'../lib/utils'`.
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `cn` | `(...classNames)` | Merge class names (like `clsx`) |
+| `mergeStyles` | `(...styles)` | Deep merge style objects |
+| `clamp` | `(value, min, max)` | Clamp a number to range |
+| `formatNumber` | `(num, decimals?)` | Format to 1.2K, 3.5M, etc. |
+| `pluralize` | `(count, singular, plural?)` | `"5 items"`, `"1 item"` |
+| `truncateText` | `(text, maxLength, suffix?)` | Truncate with `...` |
+| `generateId` | `(prefix?)` | Unique ID string |
+| `copyToClipboard` | `(text)` | Async copy with fallback |
+| `shareContent` | `(data)` | Web Share API with fallback |
+| `isReducedMotion` | `()` | Check `prefers-reduced-motion` |
+| `supportsHover` | `()` | Check hover capability |
+| `isTouchDevice` | `()` | Detect touch device |
+| `sleep` | `(ms)` | Promise-based delay |
+| `noop` | `()` | No-operation function |
+| `createEventEmitter` | `()` | Pub/sub emitter with `on`, `off`, `emit` |
+| `debounce` | `(func, wait)` | Debounce a function |
+| `throttle` | `(func, limit)` | Throttle a function |
+
+
+---
+
+
+## Higher-Order Components
+
+Import from `'../lib/hoc'`.
+
+| HOC | Usage | Description |
+|-----|-------|-------------|
+| `withErrorBoundary` | `withErrorBoundary(MyComponent, FallbackUI)` | Wraps in error boundary with fallback |
+| `withAccessibility` | `withAccessibility(MyComponent, options)` | Adds ARIA attributes, keyboard handlers, focus management |
+| `withAnalytics` | `withAnalytics(MyComponent, 'event_name')` | Tracks render/click events via event emitter |
+| `withLazyLoad` | `withLazyLoad(() => import('./Heavy'), Spinner)` | Dynamic import with Suspense |
+| `withTheme` | `withTheme(MyComponent, defaultTheme)` | Injects theme context + `toggleTheme` prop |
+| `withData` | `withData(MyComponent, fetchFn)` | Data fetching with loading/error states |
+
+```jsx
+// Example: Lazy load a heavy component with error boundary
+const LazyChart = withErrorBoundary(
+  withLazyLoad(() => import('./Chart'), <Skeleton />),
+  <ErrorState message="Failed to load chart" />
+);
+```
+
+
+---
+
+
+## Providers
+
+### ThemeProvider
+
+```jsx
+import { ThemeProvider, useTheme } from '../lib/providers';
+
+// Wrap app
+<ThemeProvider defaultTheme="dark" defaultAccent="indigo">
+  <App />
+</ThemeProvider>
+
+// Use in components
+const { theme, accent, setTheme, setAccent, toggleTheme } = useTheme();
+```
+
+### AccessibilityProvider
+
+```jsx
+import { AccessibilityProvider, useA11y } from '../lib/providers';
+
+<AccessibilityProvider>
+  <App />
+</AccessibilityProvider>
+
+const { announce, prefersReducedMotion } = useA11y();
+announce('Page loaded');
+```
+
+
+---
+
+
+## AI Model System
+
+### Model Registry (`src/config/models.js`)
+
+The single source of truth for all supported AI models. To add a new model, add an entry to `MODEL_REGISTRY` — the UI, auto-selection, and service pick it up automatically.
+
+```js
+// MODEL_REGISTRY entry structure
+{
+  id: 'gemma4:e4b',           // Ollama model tag
+  name: 'Gemma 4 E4B',        // Display name
+  family: 'gemma4',           // For grouping/styling
+  params: '4B',               // Parameter count
+  description: 'Best balance of speed and quality.',
+  tags: ['balanced', 'on-device', 'multimodal', 'recommended'],
+  context: 128_000,           // Max context window
+  multimodal: true,           // Supports image input
+  thinking: true,             // Supports thinking/reasoning mode
+  tier: 'low',                // Device tier: 'low' | 'medium' | 'high'
+  priority: 1,                // Auto-selection priority (lower = preferred)
+}
+```
+
+**Currently registered models:**
+
+| Model | Params | Multimodal | Thinking | Context | Tier |
+|-------|--------|-----------|----------|---------|------|
+| `gemma4:e2b` | 2B | Yes | Yes | 128K | Low |
+| `gemma4:e4b` | 4B | Yes | Yes | 128K | Low (Recommended) |
+| `gemma4:27b` | 27B MoE | Yes | Yes | 256K | Medium |
+| `gemma4:12b` | 12B | Yes | Yes | 256K | Medium |
+| `gemma3:4b` | 4B | Yes | No | 32K | Low (Legacy) |
+| `gemma3:12b` | 12B | Yes | No | 32K | Medium (Legacy) |
+
+**Supported model families:** `gemma4`, `gemma3`, `llama`, `mistral`, `phi`, `qwen`, `custom`.
+
+### Adding a New Model
+
+```js
+// In src/config/models.js, add to MODEL_REGISTRY:
+{
+  id: 'llama4:8b',
+  name: 'Llama 4 8B',
+  family: 'llama',
+  params: '8B',
+  description: 'Fast and capable general-purpose model.',
+  tags: ['fast', 'general'],
+  context: 128_000,
+  multimodal: false,
+  thinking: false,
+  tier: 'low',
+  priority: 5,
+}
+
+// If it's a new family, also add to MODEL_FAMILIES:
+// llama: { label: 'Llama', color: '#f59e0b', badge: null },
+```
+
+That's it. The ModelSelector UI, auto-selection logic, and Ollama service will all recognize it automatically. Custom models pulled by users that aren't in the registry also appear under "Other" with a generic config.
+
+### Exported Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `getModelById` | `(id: string)` | Get model config (with fallback for unknown models) |
+| `detectFamily` | `(modelId: string)` | Infer family from model ID string |
+| `formatModelName` | `(modelId: string)` | Human-friendly display name |
+| `selectBestModel` | `(available[], preferredId?)` | Pick best model with priority logic |
+| `buildModelList` | `(available[])` | `{ available[], unavailable[] }` for UI |
+
+### Model Switching Flow
+
+```
+User selects model in UI (HomePage or Settings)
+    ↓
+ModelSelector calls onSelect(modelId)
+    ↓
+connectionStore.switchModel(modelId)
+    ↓
+├── ollamaService.setModel(modelId)    ← updates active model in service
+├── settingsStore.setSetting(...)      ← persists preference to localStorage
+└── connectionStore status updated     ← re-renders all subscribers
+```
+
+
+---
+
+
+## Build & Publish
+
+### App Build
+
+```bash
+npm run build           # Production build → dist/
+npm run preview         # Preview production build
+```
+
+Output: Vite-optimized chunks with code splitting, PWA service worker (Workbox), tree-shaking.
+
+### Library Build
+
+```bash
+npm run build:lib       # Library build → dist-lib/
+```
+
+Uses `vite.lib.config.js` with 8 entry points:
+
+| Entry | Path |
+|-------|------|
+| `index` | `src/lib/index.js` |
+| `components` | `src/lib/components/index.js` |
+| `hooks` | `src/lib/hooks/index.js` |
+| `tokens` | `src/lib/tokens/index.js` |
+| `animations` | `src/lib/animations/index.js` |
+| `utils` | `src/lib/utils/index.js` |
+| `hoc` | `src/lib/hoc/index.jsx` |
+| `providers` | `src/lib/providers/index.js` |
+
+**External dependencies** (not bundled): `react`, `react-dom`, `react-markdown`, `lucide-react`.
+
+### Publishing to npm
+
+The `package.json` is configured for publishing as `@lenslearn/ui`:
+
+```json
+{
+  "name": "@lenslearn/ui",
+  "exports": {
+    ".": "./dist-lib/index.js",
+    "./components": "./dist-lib/components.js",
+    "./hooks": "./dist-lib/hooks.js",
+    "./tokens": "./dist-lib/tokens.js",
+    "./animations": "./dist-lib/animations.js",
+    "./utils": "./dist-lib/utils.js",
+    "./hoc": "./dist-lib/hoc.js",
+    "./providers": "./dist-lib/providers.js"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}
+```
+
+```bash
+npm run build:lib
+npm publish --access public
+```
+
+
+---
+
+
+## Architecture Patterns
+
+### Compound Components
+
+Card, Modal, and ChatThread use the compound component pattern with dot-notation sub-components attached to the parent.
+
+```jsx
+Card.Header = CardHeader;
+Card.Body = CardBody;
+Card.Footer = CardFooter;
+Card.Stat = CardStat;
+```
+
+### Polymorphic Components
+
+Button and Card accept an `as` prop for rendering as different elements (e.g., `<Button as="a" href="/about">`).
+
+### forwardRef + memo
+
+All library components use `forwardRef` for ref forwarding and `memo` for render optimization.
+
+### CSS-in-JS with Design Tokens
+
+The entire app uses inline styles powered by the design token system. No CSS files, no CSS-in-JS libraries. Styles are plain JavaScript objects that reference CSS custom properties set by the theme system.
+
+### Zustand for State
+
+Global state is managed with Zustand stores (not React Context) for better performance and simpler APIs. Stores are composed via barrel exports and can be used outside React components.
+
+### Service Layer
+
+Business logic lives in singleton services (`ollamaService`, `cacheService`, etc.) that are consumed by Zustand stores and React components. This keeps the AI integration, caching, and data persistence cleanly separated from the UI.
+
+
+---
+
+
+## Adding New Features
+
+### Adding a New Component to the Library
+
+1. Create `src/lib/components/MyComponent.jsx` with `forwardRef` + `memo`
+2. Export from `src/lib/components/index.js`
+3. If it accepts an `icon` prop, add the `renderIcon()` helper
+4. Add entry to `vite.lib.config.js` if it needs a separate chunk
+
+### Adding a New Hook
+
+1. Add the hook function to `src/lib/hooks/index.js`
+2. Follow naming convention: `use[Name]`
+3. Return stable references (use `useCallback`, `useMemo`)
+
+### Adding a New AI Model
+
+1. Add entry to `MODEL_REGISTRY` in `src/config/models.js`
+2. If new family, add to `MODEL_FAMILIES`
+3. That's it — UI, selection, and service handle it automatically
+
+### Adding a New Page
+
+1. Create `src/pages/MyPage.jsx`
+2. Add route in `src/App.jsx`
+3. Add nav entry in `src/components/BottomNav.jsx` if needed
+
+### Adding a New Store
+
+1. Create `src/store/myStore.js` with `create()` from Zustand
+2. Add `persist()` middleware if it needs localStorage
+3. Export from `src/store/index.js`
 
 
 ---
@@ -532,3 +1338,7 @@ ollama run gemma4:e4b "Explain photosynthesis in simple terms"
 
 Built by **Dilli Prasath S** — Frontend Engineer at Zoho Corporation, Chennai.
 For questions about the codebase, reach out directly.
+
+---
+
+*Component library: 28 files, ~5,300 lines. 19 components, 19 hooks, 6 HOCs, 16 utilities, 20+ animations.*
