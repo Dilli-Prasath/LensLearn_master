@@ -162,7 +162,7 @@ const styles = {
   },
   scanBtnActive: {
     background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-    borderColor: 'var(--primary)',
+    border: '1.5px solid var(--primary)',
     color: 'white',
     transform: 'scale(1.08)',
     boxShadow: '0 4px 16px rgba(99,102,241,0.4)',

@@ -9,12 +9,9 @@
  */
 
 import { Ollama } from 'ollama/browser';
+import { selectBestModel, getModelById } from '../config/models';
 
 const DEFAULT_MODEL = 'gemma4:e4b';
-const MODEL_FALLBACKS = [
-  'gemma4:e4b', 'gemma4:e2b', 'gemma4:26b', 'gemma4:31b',
-  'gemma4', 'gemma3:4b', 'gemma3'
-];
 
 // Detect device tier for adaptive token limits
 const getDeviceTier = () => {
@@ -49,27 +46,43 @@ class OllamaService {
    * Check if current model supports thinking mode (only Gemma 4 does)
    */
   get supportsThinking() {
-    return this.model.toLowerCase().startsWith('gemma4');
+    const cfg = getModelById(this.model);
+    return cfg.thinking || this.model.toLowerCase().startsWith('gemma4');
   }
 
   /**
-   * Check connection and auto-detect best Gemma model
+   * Check if current model supports multimodal (image) input
    */
-  async checkConnection() {
+  get supportsVision() {
+    const cfg = getModelById(this.model);
+    return cfg.multimodal;
+  }
+
+  /**
+   * Switch the active model. Called from UI when user picks a different model.
+   * @param {string} modelId - Ollama model tag (e.g., 'gemma4:e4b')
+   */
+  setModel(modelId) {
+    if (modelId && this.availableModels.includes(modelId)) {
+      this.model = modelId;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Check connection and auto-detect best available model.
+   * Respects a preferred model if provided.
+   * @param {string} [preferredModel] - User's preferred model from settings
+   */
+  async checkConnection(preferredModel) {
     try {
       const response = await this.ollama.list();
       this.availableModels = response.models?.map(m => m.name) || [];
 
-      // Find best available Gemma model
-      for (const fallback of MODEL_FALLBACKS) {
-        const match = this.availableModels.find(m =>
-          m === fallback || m.startsWith(fallback + ':') || m.startsWith(fallback)
-        );
-        if (match) {
-          this.model = match;
-          break;
-        }
-      }
+      // Use registry-based selection (prefers user's choice, then priority)
+      const best = selectBestModel(this.availableModels, preferredModel || this.model);
+      if (best) this.model = best;
 
       this.isConnected = true;
       return { connected: true, model: this.model, models: this.availableModels };

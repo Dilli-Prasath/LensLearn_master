@@ -1,11 +1,12 @@
 import { TrendingUp, BookOpen, Languages, Flame, ArrowRight, Target, Trophy, Sparkles, Clock, Zap, Star, ChevronRight, Layers } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useHistoryStore, useSettingsStore } from '../store';
+import { useHistoryStore, useSettingsStore, useConnectionStore } from '../store';
 import Card from '../lib/components/Card';
 import Button from '../lib/components/Button';
 import Badge from '../lib/components/Badge';
 import EmptyState from '../lib/components/EmptyState';
+import ModelSelector from '../lib/components/ModelSelector';
 
 const QUOTES = [
   'Every expert was once a beginner.',
@@ -43,6 +44,8 @@ const ACHIEVEMENTS = [
 export default function HomePage() {
   const navigate = useNavigate();
   const settings = useSettingsStore();
+  const connectionStatus = useConnectionStore((s) => s.status);
+  const switchModel = useConnectionStore((s) => s.switchModel);
   const getStats = useHistoryStore((s) => s.getStats);
   const getRecent = useHistoryStore((s) => s.getRecent);
   const DAILY_GOAL = settings.dailyGoal || 3;
@@ -96,6 +99,17 @@ export default function HomePage() {
           <div style={st.heroOrb} className="float">
             <Sparkles size={22} color="var(--primary-light)" />
           </div>
+        </div>
+        {/* Model Selector — compact inline picker */}
+        <div style={st.modelRow}>
+          <ModelSelector
+            variant="compact"
+            models={connectionStatus?.models || []}
+            activeModel={connectionStatus?.model || settings.preferredModel}
+            preferredModel={settings.preferredModel}
+            connected={connectionStatus?.connected || false}
+            onSelect={switchModel}
+          />
         </div>
       </div>
 
@@ -352,6 +366,9 @@ const st = {
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+  },
+  modelRow: {
+    marginTop: 10,
   },
 
   // Daily goal

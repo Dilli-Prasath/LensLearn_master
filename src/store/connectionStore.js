@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import ollamaService from '../services/ollamaService';
 import { device } from '../utils/performance';
+import { useSettingsStore } from './settingsStore';
 
 export const useConnectionStore = create((set, get) => ({
   status: null,         // { connected, model, models, error }
@@ -13,11 +14,12 @@ export const useConnectionStore = create((set, get) => ({
   lastChecked: null,
   pollInterval: null,
 
-  // ── Check connection ──
+  // ── Check connection (reads preferred model from settings) ──
   check: async () => {
     set({ isChecking: true });
     try {
-      const status = await ollamaService.checkConnection();
+      const preferred = useSettingsStore.getState().preferredModel;
+      const status = await ollamaService.checkConnection(preferred);
       set({ status, isChecking: false, lastChecked: Date.now() });
       return status;
     } catch (err) {
@@ -28,6 +30,19 @@ export const useConnectionStore = create((set, get) => ({
       });
       return { connected: false, error: err.message };
     }
+  },
+
+  // ── Switch model: update service + settings + store in one call ──
+  switchModel: (modelId) => {
+    const ok = ollamaService.setModel(modelId);
+    if (ok) {
+      // Persist preference
+      useSettingsStore.getState().setSetting('preferredModel', modelId);
+      // Update local status
+      const prev = get().status;
+      set({ status: { ...prev, model: modelId } });
+    }
+    return ok;
   },
 
   // ── Start periodic polling ──

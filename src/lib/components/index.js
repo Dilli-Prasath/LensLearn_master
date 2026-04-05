@@ -28,3 +28,4 @@ export { default as LanguageSelector } from './LanguageSelector';
 export { default as Dropdown } from './Dropdown';
 export { default as EmptyState } from './EmptyState';
 export { default as Toast, ToastProvider, useToast } from './Toast';
+export { default as ModelSelector } from './ModelSelector';

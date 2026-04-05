@@ -32,9 +32,9 @@ export default function CameraCapture({
 }) {
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
-  const [showCropper, setShowCropper] = useToggle(false);
-  const [isDragging, setIsDragging] = useToggle(false);
-  const [uploadError, setUploadError] = useToggle(false);
+  const [showCropper, , showCropperOn, showCropperOff] = useToggle(false);
+  const [isDragging, , setDraggingOn, setDraggingOff] = useToggle(false);
+  const [uploadError, , setUploadErrorOn, setUploadErrorOff] = useToggle(false);
   const [showGrid, setShowGrid] = useToggle(false);
   const [uploadErrorMsg, setUploadErrorMsg] = useState(null);
   const [captureFlash, setCaptureFlash] = useState(false);
@@ -55,14 +55,14 @@ export default function CameraCapture({
       }
     } catch (err) {
       setUploadErrorMsg(err.message || 'Failed to process file');
-      setUploadError(true);
+      setUploadErrorOn();
     }
   };
 
-  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging.on(); };
-  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging.off(); };
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setDraggingOn(); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDraggingOff(); };
   const handleDrop = (e) => {
-    e.preventDefault(); e.stopPropagation(); setIsDragging.off();
+    e.preventDefault(); e.stopPropagation(); setDraggingOff();
     if (e.dataTransfer?.files?.[0]) handleFileWithType(e.dataTransfer.files[0]);
   };
 
@@ -72,9 +72,9 @@ export default function CameraCapture({
     onCapturePhoto();
   };
 
-  const handleCropComplete = (croppedImage) => { setShowCropper.off(); onImageCropped?.(croppedImage); };
-  const handleSkipCrop = () => setShowCropper.off();
-  const handleRetakeCrop = () => { setShowCropper.off(); onClearImage(); };
+  const handleCropComplete = (croppedImage) => { showCropperOff(); onImageCropped?.(croppedImage); };
+  const handleSkipCrop = () => showCropperOff();
+  const handleRetakeCrop = () => { showCropperOff(); onClearImage(); };
 
   // --- Cropper view ---
   if (capturedImage && showCropper) {
@@ -141,7 +141,7 @@ export default function CameraCapture({
           <Button variant="secondary" icon={RotateCcw} onClick={onClearImage} disabled={isProcessing}>
             Retake
           </Button>
-          <Button variant="secondary" icon={Crop} onClick={() => setShowCropper.on()} disabled={isProcessing}>
+          <Button variant="secondary" icon={Crop} onClick={showCropperOn} disabled={isProcessing}>
             Crop
           </Button>
           <Button variant="primary" icon={Sparkles} style={{ flex: 2 }} onClick={onExplain} disabled={isProcessing}>
@@ -248,7 +248,7 @@ export default function CameraCapture({
       {uploadError && (
         <div style={s.errorBanner} className="slide-up">
           <span>{uploadErrorMsg}</span>
-          <IconButton icon={X} size="sm" variant="ghost" onClick={() => setUploadError.off()} />
+          <IconButton icon={X} size="sm" variant="ghost" onClick={setUploadErrorOff} />
         </div>
       )}
 

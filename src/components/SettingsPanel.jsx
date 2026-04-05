@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import historyService from '../services/historyService';
 import { THEMES, ACCENT_COLORS, FONT_OPTIONS, BORDER_RADIUS_OPTIONS, LAYOUT_WIDTH_OPTIONS } from '../utils/themes';
+import ModelSelector from '../lib/components/ModelSelector';
+import { useConnectionStore } from '../store/connectionStore';
 
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'German', 'Portuguese',
@@ -20,20 +22,6 @@ const GRADE_LEVELS = [
   'college / university',
   'professional / advanced'
 ];
-
-function formatModelName(model) {
-  if (!model) return 'Unknown';
-  const m = model.toLowerCase();
-  if (m.startsWith('gemma4')) {
-    const variant = m.split(':')[1] || '';
-    return `Gemma 4${variant ? ' ' + variant.toUpperCase() : ''}`;
-  }
-  if (m.startsWith('gemma3')) {
-    const variant = m.split(':')[1] || '';
-    return `Gemma 3${variant ? ' ' + variant.toUpperCase() : ''}`;
-  }
-  return model;
-}
 
 export default function SettingsPanel({ settings, onChange, connectionStatus }) {
   const [activeSection, setActiveSection] = useState(null);
@@ -385,36 +373,17 @@ export default function SettingsPanel({ settings, onChange, connectionStatus }) 
 
         {/* ===== AI MODEL ===== */}
         <Section id="ai" icon={Cpu} title="AI Model" badge={connectionStatus?.connected ? 'Connected' : 'Offline'}>
-          <div style={styles.infoCard}>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Status</span>
-              <span style={{
-                ...styles.statusBadge,
-                background: connectionStatus?.connected ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                color: connectionStatus?.connected ? 'var(--success)' : 'var(--error)',
-              }}>
-                {connectionStatus?.connected ? 'Connected' : 'Disconnected'}
-              </span>
-            </div>
-            {connectionStatus?.connected && (
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Model</span>
-                <span style={styles.infoValue}>{formatModelName(connectionStatus.model)}</span>
-              </div>
-            )}
-            {connectionStatus?.connected && connectionStatus.models?.length > 0 && (
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Available</span>
-                <span style={styles.infoValue}>{connectionStatus.models.length} models</span>
-              </div>
-            )}
-            {!connectionStatus?.connected && (
-              <p style={styles.helpText}>
-                Start Ollama on your computer and run:<br />
-                <code style={styles.codeBlock}>ollama pull gemma4:e4b</code>
-              </p>
-            )}
-          </div>
+          <ModelSelector
+            variant="full"
+            models={connectionStatus?.models || []}
+            activeModel={connectionStatus?.model || settings.preferredModel}
+            preferredModel={settings.preferredModel}
+            connected={connectionStatus?.connected || false}
+            onSelect={(modelId) => {
+              useConnectionStore.getState().switchModel(modelId);
+              update('preferredModel', modelId);
+            }}
+          />
         </Section>
 
         {/* ===== DATA ===== */}
