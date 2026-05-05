@@ -88,15 +88,19 @@ export default function ExplanationPage() {
     }
   }, [explanation, settings.language, translate]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (capturedImage && explanation) {
-      saveSession({
-        image: capturedImage,
-        explanation,
-        subject: settings.subject,
-        language: settings.language,
-        quiz: useScanStore.getState().quiz,
-      });
+      try {
+        await saveSession({
+          image: capturedImage,
+          explanation,
+          subject: settings.subject,
+          language: settings.language,
+          quiz: useScanStore.getState().quiz,
+        });
+      } catch (err) {
+        console.warn('Failed to save session:', err);
+      }
     }
   }, [capturedImage, explanation, settings, saveSession]);
 

@@ -127,7 +127,7 @@ const EmptyState = forwardRef(function EmptyState(
       <div style={contentStyle}>
         {icon && (
           <div style={iconStyle}>
-            {renderIcon(icon, sizeConfig.iconSize)}
+            {renderIcon(icon, config.iconSize)}
           </div>
         )}
 

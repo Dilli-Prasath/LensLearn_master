@@ -18,6 +18,7 @@ import cacheService from '../services/cacheService';
 import exportService from '../services/exportService';
 import { adaptiveSettings, device } from '../utils/performance';
 
+
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'German', 'Portuguese',
   'Hindi', 'Tamil', 'Bengali', 'Arabic', 'Chinese',
@@ -42,7 +43,7 @@ const ChatMessage = memo(({ msg, mdComponents, isLatest }) => (
     </div>
     <div style={{ ...msgStyles.content, ...(msg.role === 'user' ? msgStyles.contentUser : {}) }}>
       <ReactMarkdown components={mdComponents}>
-        {msg.content}
+        {msg.content || ''}
       </ReactMarkdown>
     </div>
   </div>
@@ -122,7 +123,7 @@ export default function ExplanationView({
   useEffect(() => {
     if (!isStreaming && explanation && !savedRef.current && imagePreview) {
       savedRef.current = true;
-      onSaveSession?.();
+      try { onSaveSession?.(); } catch { /* quota or other error — non-fatal */ }
     }
   }, [isStreaming, explanation, imagePreview, onSaveSession]);
 
@@ -220,12 +221,25 @@ export default function ExplanationView({
     h1: ({ children }) => <h3 style={mdStyles.h}>{children}</h3>,
     h2: ({ children }) => <h4 style={mdStyles.h}>{children}</h4>,
     h3: ({ children }) => <h5 style={mdStyles.h}>{children}</h5>,
+    h4: ({ children }) => <h6 style={mdStyles.h}>{children}</h6>,
     p: ({ children }) => <p style={mdStyles.p}>{children}</p>,
     strong: ({ children }) => <strong style={mdStyles.strong}>{children}</strong>,
+    em: ({ children }) => <em>{children}</em>,
+    a: ({ children, href }) => <a href={href} style={{ color: 'var(--primary-light)' }} target="_blank" rel="noopener noreferrer">{children}</a>,
+    blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid var(--border)', paddingLeft: 12, margin: '12px 0', color: 'var(--text-muted)' }}>{children}</blockquote>,
+    pre: ({ children }) => <pre style={{ background: 'var(--bg-input)', padding: 12, borderRadius: 8, overflow: 'auto', fontSize: 13, marginBottom: 12 }}>{children}</pre>,
     code: ({ children }) => <code style={mdStyles.code}>{children}</code>,
     li: ({ children }) => <li style={mdStyles.li}>{children}</li>,
     ul: ({ children }) => <ul style={mdStyles.ul}>{children}</ul>,
     ol: ({ children }) => <ol style={mdStyles.ol}>{children}</ol>,
+    table: ({ children }) => <table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: 12 }}>{children}</table>,
+    th: ({ children }) => <th style={{ border: '1px solid var(--border)', padding: '6px 10px', textAlign: 'left', fontWeight: 600, background: 'var(--bg-input)' }}>{children}</th>,
+    td: ({ children }) => <td style={{ border: '1px solid var(--border)', padding: '6px 10px' }}>{children}</td>,
+    tr: ({ children }) => <tr>{children}</tr>,
+    thead: ({ children }) => <thead>{children}</thead>,
+    tbody: ({ children }) => <tbody>{children}</tbody>,
+    hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '16px 0' }} />,
+    img: ({ src, alt }) => <img src={src} alt={alt || ''} style={{ maxWidth: '100%', borderRadius: 8 }} />,
   }), []);
 
   const handleExportNotes = useCallback(() => {

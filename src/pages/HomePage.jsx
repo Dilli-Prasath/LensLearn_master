@@ -342,7 +342,7 @@ const st = {
   },
 
   // Hero
-  hero: { marginBottom: 20, paddingTop: 4, position: 'relative', zIndex: 1 },
+  hero: { marginBottom: 20, paddingTop: 4, position: 'relative', zIndex: 10 },
   greetingRow: {
     display: 'flex',
     alignItems: 'center',
@@ -369,6 +369,8 @@ const st = {
   },
   modelRow: {
     marginTop: 10,
+    position: 'relative',
+    zIndex: 10,
   },
 
   // Daily goal

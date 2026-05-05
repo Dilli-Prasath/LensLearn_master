@@ -183,12 +183,13 @@ const CardStat = memo(function CardStat({ label, value, icon, trend, color }) {
   );
 });
 
-// Attach sub-components
-Card.Header = CardHeader;
-Card.Body = CardBody;
-Card.Footer = CardFooter;
-Card.Stat = CardStat;
+// Wrap in memo first, then attach sub-components to the EXPORTED object
 Card.displayName = 'Card';
+const MemoCard = memo(Card);
+MemoCard.Header = CardHeader;
+MemoCard.Body = CardBody;
+MemoCard.Footer = CardFooter;
+MemoCard.Stat = CardStat;
 
-export default memo(Card);
+export default MemoCard;
 export { CARD_VARIANTS as cardVariants, CardContext };

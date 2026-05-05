@@ -7,6 +7,89 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 const MAX_SESSIONS = 50;
+const THUMBNAIL_MAX_DIM = 200;
+const THUMBNAIL_QUALITY = 0.5;
+
+/**
+ * Compress a base64 image to a small JPEG thumbnail.
+ * Returns a promise that resolves to the compressed base64 string,
+ * or the original (truncated) if compression fails.
+ */
+function compressImageToThumbnail(base64) {
+  return new Promise((resolve) => {
+    if (!base64 || !base64.startsWith('data:image')) {
+      resolve(null);
+      return;
+    }
+    try {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > height) {
+          if (width > THUMBNAIL_MAX_DIM) { height = (height * THUMBNAIL_MAX_DIM) / width; width = THUMBNAIL_MAX_DIM; }
+        } else {
+          if (height > THUMBNAIL_MAX_DIM) { width = (width * THUMBNAIL_MAX_DIM) / height; height = THUMBNAIL_MAX_DIM; }
+        }
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', THUMBNAIL_QUALITY));
+      };
+      img.onerror = () => resolve(null);
+      img.src = base64;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Safe localStorage storage that catches quota errors and evicts old sessions.
+ */
+const safeStorage = {
+  getItem: (name) => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (e) {
+      if (e?.name === 'QuotaExceededError') {
+        // Try to free space by parsing, removing oldest sessions, and retrying
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed?.state?.sessions?.length > 1) {
+            // Remove images from oldest half of sessions
+            const sessions = parsed.state.sessions;
+            const half = Math.ceil(sessions.length / 2);
+            for (let i = half; i < sessions.length; i++) {
+              sessions[i].image = null;
+            }
+            // Also trim to fewer sessions if still large
+            if (sessions.length > 20) {
+              parsed.state.sessions = sessions.slice(0, 20);
+            }
+            localStorage.setItem(name, JSON.stringify(parsed));
+            return;
+          }
+        } catch { /* ignore parse errors */ }
+        console.warn('[LensLearn] Storage quota exceeded, clearing old history');
+        try { localStorage.removeItem(name); } catch { /* give up */ }
+      }
+    }
+  },
+  removeItem: (name) => {
+    try {
+      localStorage.removeItem(name);
+    } catch { /* ignore */ }
+  },
+};
 
 /* ─── Subject auto-detection ─── */
 const SUBJECT_KEYWORDS = {
@@ -37,18 +120,19 @@ export const useHistoryStore = create(
     (set, get) => ({
       sessions: [],
 
-      // ── Save a new session ──
-      saveSession: ({ image, explanation, subject, language, quiz }) => {
+      // ── Save a new session (compresses image to thumbnail) ──
+      saveSession: async ({ image, explanation, subject, language, quiz }) => {
+        // Compress image to small thumbnail to avoid localStorage quota issues
+        const thumbnail = image ? await compressImageToThumbnail(image) : null;
         const session = {
           id: Date.now(),
           timestamp: new Date().toISOString(),
-          image,
+          image: thumbnail,
           explanation,
           subject: subject && subject !== 'auto-detect' ? subject : detectSubject(explanation),
           language,
           quiz: quiz || null,
           bookmarked: false,
-          // Future fields
           tags: [],
           notes: '',
           rating: null,
@@ -143,6 +227,7 @@ export const useHistoryStore = create(
     {
       name: 'lenslearn-history-v2',
       version: 1,
+      storage: safeStorage,
       partialize: (state) => ({ sessions: state.sessions }),
     }
   )

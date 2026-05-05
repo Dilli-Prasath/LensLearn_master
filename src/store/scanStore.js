@@ -153,7 +153,7 @@ export const useScanStore = create((set, get) => ({
         language, difficulty, numQuestions,
       });
       if (quizData.questions?.length > 0) {
-        set({ quiz: quizData });
+        set({ quiz: quizData, quizLoading: false });
         return true; // signal success for navigation
       }
     } catch (err) {
@@ -170,7 +170,7 @@ export const useScanStore = create((set, get) => ({
     try {
       const data = await ollamaService.generateFlashcards(explanation, { language });
       if (data.flashcards?.length > 0) {
-        set({ flashcards: data.flashcards });
+        set({ flashcards: data.flashcards, flashcardsLoading: false });
         return true;
       }
     } catch (err) {

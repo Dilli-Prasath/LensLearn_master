@@ -47,6 +47,9 @@ export default defineConfig({
       }
     })
   ],
+  optimizeDeps: {
+    include: ['react-markdown'],
+  },
   server: {
     proxy: {
       '/api/ollama': {

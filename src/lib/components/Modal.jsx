@@ -152,7 +152,8 @@ const ModalActions = memo(function ModalActions({ children, align = 'right', sty
   );
 });
 
-Modal.Actions = ModalActions;
 Modal.displayName = 'Modal';
+const MemoModal = memo(Modal);
+MemoModal.Actions = ModalActions;
 
-export default memo(Modal);
+export default MemoModal;
