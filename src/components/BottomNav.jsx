@@ -1,5 +1,6 @@
 import { Home, Camera, BookOpen, Clock, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useScanStore } from '../store';
 
 
 const TAB_ROUTES = {
@@ -20,6 +21,17 @@ const tabs = [
 
 export default function BottomNav({ activeTab }) {
   const navigate = useNavigate();
+  const hasExplanation = useScanStore((s) => !!s.explanation && !s.isProcessing);
+
+  const handleTabClick = (tabId) => {
+    // If user taps "Scan" tab while an explanation exists, go to /explain
+    // so they don't lose their current work
+    if (tabId === 'scan' && hasExplanation) {
+      navigate('/explain');
+    } else {
+      navigate(TAB_ROUTES[tabId]);
+    }
+  };
 
   return (
     <nav
@@ -42,7 +54,7 @@ export default function BottomNav({ activeTab }) {
                 ...styles.navItem,
                 ...(isActive && !isScan ? styles.navItemActive : {}),
               }}
-              onClick={() => navigate(TAB_ROUTES[tab.id])}
+              onClick={() => handleTabClick(tab.id)}
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
             >

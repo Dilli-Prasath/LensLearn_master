@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, RotateCw, Check, X, Layers, Shuffle, Award } from 'lucide-react';
 import Button from '../lib/components/Button';
 import Card from '../lib/components/Card';
@@ -7,93 +7,143 @@ import Progress from '../lib/components/Progress';
 import ProgressRing from '../lib/components/ProgressRing';
 import EmptyState from '../lib/components/EmptyState';
 
-export default function FlashcardView({ flashcards, onClose }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+/**
+ * Normalize flashcard data from AI responses.
+ * AI models may return varied field names and formats:
+ *  - "front"/"back" (expected)
+ *  - "question"/"answer"
+ *  - "term"/"definition"
+ *  - "prompt"/"response"
+ *  - "q"/"a"
+ *  - nested in extra wrapper
+ * Also filters out empty/invalid cards.
+ */
+function normalizeFlashcards(raw) {
+  if (!raw || !Array.isArray(raw)) return [];
+
+  return raw
+    .map(card => {
+      if (!card || typeof card !== 'object') return null;
+
+      // Try various field name combinations for front/back
+      const front =
+        card.front || card.question || card.term || card.prompt ||
+        card.q || card.Front || card.Question || card.Term || '';
+      const back =
+        card.back || card.answer || card.definition || card.response ||
+        card.a || card.Back || card.Answer || card.Definition ||
+        card.explanation || card.Explanation || '';
+
+      // Both sides must have content
+      const frontStr = String(front).trim();
+      const backStr = String(back).trim();
+      if (!frontStr || !backStr) return null;
+
+      return { front: frontStr, back: backStr };
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Fisher-Yates shuffle (immutable — returns new array)
+ */
+function shuffleArray(arr) {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export default function FlashcardView({ flashcards: rawFlashcards, onClose }) {
+  const cards = useMemo(() => normalizeFlashcards(rawFlashcards), [rawFlashcards]);
+
+  const [cardOrder, setCardOrder] = useState(() => cards.map((_, i) => i));
+  const [currentStep, setCurrentStep] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [masteredCards, setMasteredCards] = useState(new Set());
   const [reviewCards, setReviewCards] = useState(new Set());
   const [showSummary, setShowSummary] = useState(false);
-  const [slideDir, setSlideDir] = useState(null); // 'left' or 'right' for transition
 
-  if (!flashcards || flashcards.length === 0) {
+  if (!cards.length) {
     return (
       <div style={styles.container}>
         <EmptyState
           icon={<Layers size={48} />}
           title="No flashcards"
-          description="No flashcards to display"
+          description="Could not generate flashcards. Try again with different content."
           className="fade-in"
         />
       </div>
     );
   }
 
-  const handleKnowIt = () => {
-    const id = currentIndex;
-    setMasteredCards(prev => new Set([...prev, id]));
-    setReviewCards(prev => {
-      const updated = new Set(prev);
-      updated.delete(id);
-      return updated;
-    });
-    setSlideDir('right');
-    handleNext();
-  };
+  const currentCardIdx = cardOrder[currentStep];
+  const currentCard = cards[currentCardIdx];
+  const isMastered = masteredCards.has(currentCardIdx);
+  const isReview = reviewCards.has(currentCardIdx);
+  const percentMastered = Math.round((masteredCards.size / cards.length) * 100);
 
-  const handleStudyAgain = () => {
-    const id = currentIndex;
-    setReviewCards(prev => new Set([...prev, id]));
-    setMasteredCards(prev => {
-      const updated = new Set(prev);
-      updated.delete(id);
-      return updated;
-    });
-    setSlideDir('left');
-    handleNext();
-  };
-
-  const handleNext = () => {
-    if (currentIndex < flashcards.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const goToNext = () => {
+    if (currentStep < cardOrder.length - 1) {
+      setCurrentStep(s => s + 1);
       setIsFlipped(false);
     } else {
       setShowSummary(true);
     }
   };
 
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setSlideDir(null);
-      setCurrentIndex(currentIndex - 1);
+  const goToPrev = () => {
+    if (currentStep > 0) {
+      setCurrentStep(s => s - 1);
       setIsFlipped(false);
     }
   };
 
+  const handleKnowIt = () => {
+    const idx = currentCardIdx;
+    setMasteredCards(prev => new Set([...prev, idx]));
+    setReviewCards(prev => {
+      const updated = new Set(prev);
+      updated.delete(idx);
+      return updated;
+    });
+    goToNext();
+  };
+
+  const handleStudyAgain = () => {
+    const idx = currentCardIdx;
+    setReviewCards(prev => new Set([...prev, idx]));
+    setMasteredCards(prev => {
+      const updated = new Set(prev);
+      updated.delete(idx);
+      return updated;
+    });
+    goToNext();
+  };
+
   const handleReset = () => {
-    setCurrentIndex(0);
+    setCurrentStep(0);
     setIsFlipped(false);
     setMasteredCards(new Set());
     setReviewCards(new Set());
     setShowSummary(false);
-    setSlideDir(null);
+    setCardOrder(cards.map((_, i) => i));
   };
 
   const handleShuffle = () => {
-    // Visual feedback only — user can restudy in random order on reset
-    setCurrentIndex(0);
+    setCardOrder(shuffleArray(cards.map((_, i) => i)));
+    setCurrentStep(0);
     setIsFlipped(false);
-    setSlideDir(null);
+    setMasteredCards(new Set());
+    setReviewCards(new Set());
+    setShowSummary(false);
   };
 
-  const currentCard = flashcards[currentIndex];
-  const percentMastered = Math.round((masteredCards.size / flashcards.length) * 100);
-  const percentReview = Math.round((reviewCards.size / flashcards.length) * 100);
-  const isMastered = masteredCards.has(currentIndex);
-  const isReview = reviewCards.has(currentIndex);
-
+  // ── Summary screen ──
   if (showSummary) {
-    const allMastered = masteredCards.size === flashcards.length;
-
+    const allMastered = masteredCards.size === cards.length;
     return (
       <div style={styles.container} className="fade-in">
         <Card variant="elevated" style={styles.summary}>
@@ -105,31 +155,14 @@ export default function FlashcardView({ flashcards, onClose }) {
               {allMastered ? 'Perfect Score!' : 'Session Complete!'}
             </h2>
 
-            {/* Progress ring */}
-            <ProgressRing
-              value={percentMastered}
-              size={100}
-              color="var(--success)"
-              showValue
-            />
+            <ProgressRing value={percentMastered} size={100} color="var(--success)" showValue />
 
-            {/* Stats Grid */}
             <div style={styles.statsGrid} className="stagger-children">
               <Card variant="outline" style={styles.statCard} className="hover-lift">
-                <Card.Stat
-                  label="Mastered"
-                  value={masteredCards.size}
-                  icon={<Check size={20} />}
-                  color="var(--success)"
-                />
+                <Card.Stat label="Mastered" value={masteredCards.size} icon={<Check size={20} />} color="var(--success)" />
               </Card>
               <Card variant="outline" style={styles.statCard} className="hover-lift">
-                <Card.Stat
-                  label="Review"
-                  value={reviewCards.size}
-                  icon={<RotateCw size={20} />}
-                  color="var(--warning)"
-                />
+                <Card.Stat label="Review" value={reviewCards.size} icon={<RotateCw size={20} />} color="var(--warning, #f59e0b)" />
               </Card>
             </div>
 
@@ -140,15 +173,13 @@ export default function FlashcardView({ flashcards, onClose }) {
             </p>
 
             <div style={styles.summaryActions}>
-              <Button
-                variant="primary"
-                icon={<RotateCw size={18} />}
-                onClick={handleReset}
-                fullWidth
-              >
-                Study Again
+              <Button variant="primary" icon={<Shuffle size={18} />} onClick={handleShuffle} fullWidth>
+                Shuffle & Retry
               </Button>
-              <Button variant="secondary" onClick={onClose} fullWidth>
+              <Button variant="secondary" icon={<RotateCw size={18} />} onClick={handleReset} fullWidth>
+                Start Over
+              </Button>
+              <Button variant="ghost" onClick={onClose} fullWidth>
                 Done
               </Button>
             </div>
@@ -158,36 +189,42 @@ export default function FlashcardView({ flashcards, onClose }) {
     );
   }
 
+  // ── Main flashcard view ──
   return (
     <div style={styles.container}>
-      {/* Progress with dots */}
+      {/* Progress bar + dots */}
       <div style={styles.progress} className="fade-in">
         <div style={styles.progressInfo}>
           <span style={styles.cardCounter}>
             <Layers size={14} style={{ marginRight: 4 }} />
-            {currentIndex + 1} / {flashcards.length}
+            {currentStep + 1} / {cards.length}
           </span>
-          <Badge variant="success" size="sm" icon={<Check size={12} />}>
-            {masteredCards.size} mastered
-          </Badge>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Badge variant="success" size="sm" icon={<Check size={12} />}>
+              {masteredCards.size}
+            </Badge>
+            {reviewCards.size > 0 && (
+              <Badge variant="warning" size="sm" icon={<RotateCw size={12} />}>
+                {reviewCards.size}
+              </Badge>
+            )}
+          </div>
         </div>
-        <Progress
-          value={currentIndex + 1}
-          max={flashcards.length}
-          size="md"
-        />
-        {/* Card dots */}
+        <Progress value={currentStep + 1} max={cards.length} size="md" />
         <div style={styles.cardDots}>
-          {flashcards.map((_, i) => (
-            <div key={i} style={{
-              ...styles.cardDot,
-              background: i === currentIndex ? 'var(--primary-light)'
-                : masteredCards.has(i) ? 'var(--success)'
-                : reviewCards.has(i) ? 'var(--warning)'
-                : 'var(--border)',
-              transform: i === currentIndex ? 'scale(1.3)' : 'scale(1)',
-            }} />
-          ))}
+          {cards.map((_, i) => {
+            const orderIdx = cardOrder.indexOf(i);
+            return (
+              <div key={i} style={{
+                ...styles.cardDot,
+                background: orderIdx === currentStep ? 'var(--primary-light)'
+                  : masteredCards.has(i) ? 'var(--success, #10b981)'
+                  : reviewCards.has(i) ? 'var(--warning, #f59e0b)'
+                  : 'var(--border)',
+                transform: orderIdx === currentStep ? 'scale(1.4)' : 'scale(1)',
+              }} />
+            );
+          })}
         </div>
       </div>
 
@@ -196,22 +233,38 @@ export default function FlashcardView({ flashcards, onClose }) {
         <div
           style={{
             ...styles.flashcard,
-            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-            borderColor: isMastered ? 'var(--success)' : isReview ? 'var(--warning)' : 'var(--border)',
+            borderColor: isMastered ? 'var(--success, #10b981)'
+              : isReview ? 'var(--warning, #f59e0b)'
+              : 'var(--border)',
           }}
           onClick={() => setIsFlipped(!isFlipped)}
+          role="button"
+          tabIndex={0}
+          aria-label={isFlipped ? 'Answer side. Tap to flip.' : 'Question side. Tap to reveal answer.'}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsFlipped(!isFlipped); } }}
         >
           {/* Front face */}
-          <div style={{ ...styles.cardFace, opacity: isFlipped ? 0 : 1, pointerEvents: isFlipped ? 'none' : 'auto' }}>
+          <div style={{
+            ...styles.cardFace,
+            opacity: isFlipped ? 0 : 1,
+            pointerEvents: isFlipped ? 'none' : 'auto',
+            transform: isFlipped ? 'scale(0.95)' : 'scale(1)',
+          }}>
             <div style={styles.cardLabel}>Question</div>
             <div style={styles.cardContent}>{currentCard.front}</div>
             <div style={styles.tapHint}>
               <RotateCw size={12} style={{ marginRight: 4 }} />
-              Tap to reveal
+              Tap to reveal answer
             </div>
           </div>
-          {/* Back face (shown when flipped — we fake it since CSS 3D is tricky in inline) */}
-          <div style={{ ...styles.cardFace, ...styles.cardFaceBack, opacity: isFlipped ? 1 : 0, pointerEvents: isFlipped ? 'auto' : 'none' }}>
+
+          {/* Back face */}
+          <div style={{
+            ...styles.cardFace,
+            opacity: isFlipped ? 1 : 0,
+            pointerEvents: isFlipped ? 'auto' : 'none',
+            transform: isFlipped ? 'scale(1)' : 'scale(0.95)',
+          }}>
             <div style={{ ...styles.cardLabel, color: 'var(--primary-light)' }}>Answer</div>
             <div style={styles.cardContent}>{currentCard.back}</div>
             <div style={styles.tapHint}>
@@ -222,49 +275,67 @@ export default function FlashcardView({ flashcards, onClose }) {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation row */}
       <div style={styles.navigation}>
         <Button
-          variant="secondary"
+          variant="ghost"
           size="sm"
           icon={<ChevronLeft size={18} />}
-          onClick={handlePrev}
-          disabled={currentIndex === 0}
+          onClick={goToPrev}
+          disabled={currentStep === 0}
         >
           Prev
         </Button>
+
         <Button
-          variant="secondary"
+          variant="ghost"
+          size="sm"
+          icon={<Shuffle size={16} />}
+          onClick={handleShuffle}
+        >
+          Shuffle
+        </Button>
+
+        <Button
+          variant="ghost"
           size="sm"
           iconRight={<ChevronRight size={18} />}
-          onClick={() => { setSlideDir(null); handleNext(); }}
-          disabled={currentIndex >= flashcards.length - 1}
+          onClick={() => goToNext()}
+          disabled={currentStep >= cardOrder.length - 1}
         >
-          Next
+          Skip
         </Button>
       </div>
 
-      {/* Mastery buttons */}
-      <div style={styles.masteryButtons}>
-        <Button
-          variant={isReview ? 'warning' : 'outline'}
-          icon={<X size={16} />}
-          onClick={handleStudyAgain}
-          fullWidth
-          style={{ borderColor: 'var(--warning)', color: isReview ? 'white' : 'var(--warning)' }}
-        >
-          Study Again
-        </Button>
+      {/* Mastery buttons — only show when card is flipped */}
+      {isFlipped && (
+        <div style={styles.masteryButtons} className="fade-in">
+          <Button
+            variant={isReview ? 'warning' : 'outline'}
+            icon={<X size={16} />}
+            onClick={handleStudyAgain}
+            fullWidth
+            style={!isReview ? { borderColor: 'var(--warning, #f59e0b)', color: 'var(--warning, #f59e0b)' } : undefined}
+          >
+            Study Again
+          </Button>
+          <Button
+            variant={isMastered ? 'success' : 'primary'}
+            icon={<Check size={16} />}
+            onClick={handleKnowIt}
+            fullWidth
+          >
+            {isMastered ? 'Got it!' : 'Know It'}
+          </Button>
+        </div>
+      )}
 
-        <Button
-          variant={isMastered ? 'success' : 'primary'}
-          icon={<Check size={16} />}
-          onClick={handleKnowIt}
-          fullWidth
-        >
-          {isMastered ? 'Got it!' : 'Know It'}
-        </Button>
-      </div>
+      {/* Hint when not flipped */}
+      {!isFlipped && (
+        <div style={styles.flipHint} className="fade-in">
+          Tap the card to reveal the answer, then rate yourself
+        </div>
+      )}
     </div>
   );
 }
@@ -273,7 +344,7 @@ const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 16,
+    gap: 14,
     padding: 16,
     height: '100%',
     overflowY: 'auto',
@@ -294,31 +365,30 @@ const styles = {
   // Card
   cardContainer: {
     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: 260, perspective: '1000px',
+    minHeight: 240,
   },
   flashcard: {
-    width: '100%', maxWidth: 400, height: 260,
+    width: '100%', maxWidth: 400, minHeight: 240,
     background: 'var(--bg-card)', border: '2px solid var(--border)',
-    borderRadius: 'var(--radius)', cursor: 'pointer',
+    borderRadius: 'var(--radius, 16px)', cursor: 'pointer',
     position: 'relative',
-    transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.3s',
-    transformStyle: 'preserve-3d',
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+    overflow: 'hidden',
   },
   cardFace: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     justifyContent: 'center', padding: 24, textAlign: 'center',
-    transition: 'opacity 0.3s ease',
+    transition: 'opacity 0.35s ease, transform 0.35s ease',
   },
-  cardFaceBack: {},
   cardLabel: {
     fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase',
     letterSpacing: 1.5, marginBottom: 14, fontWeight: 700,
   },
   cardContent: {
-    fontSize: 18, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16,
-    fontWeight: 500,
+    fontSize: 17, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 16,
+    fontWeight: 500, wordBreak: 'break-word', maxHeight: 140, overflowY: 'auto',
   },
   tapHint: {
     display: 'flex', alignItems: 'center',
@@ -326,18 +396,20 @@ const styles = {
   },
 
   // Navigation
-  navigation: { display: 'flex', gap: 12, justifyContent: 'center' },
+  navigation: { display: 'flex', gap: 8, justifyContent: 'center' },
   masteryButtons: { display: 'flex', gap: 12, justifyContent: 'center' },
 
-  // Summary
-  summary: {
-    padding: 24,
+  // Flip hint
+  flipHint: {
+    textAlign: 'center', fontSize: 12, color: 'var(--text-muted)',
+    fontStyle: 'italic', padding: '8px 0',
   },
+
+  // Summary
+  summary: { padding: 24 },
   summaryTitle: { fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' },
   statsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, width: '100%', maxWidth: 280 },
-  statCard: {
-    padding: 16,
-  },
+  statCard: { padding: 16 },
   summarySubtext: { textAlign: 'center', color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 14 },
   summaryActions: { display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 280 },
 };

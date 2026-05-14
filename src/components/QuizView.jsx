@@ -5,6 +5,88 @@ import Card from '../lib/components/Card';
 import Badge from '../lib/components/Badge';
 import Progress from '../lib/components/Progress';
 import ScoreRing from '../lib/components/ScoreRing';
+import { useScanStore } from '../store';
+
+/**
+ * Normalize quiz questions from AI responses.
+ * AI models return varied formats — this handles all common cases:
+ *  - correct: "A", "A)", "A.", "a", "A) Full text", full option text, index number
+ *  - options: "A) text", "A. text", "1) text", or plain text without prefixes
+ *
+ * After normalization every question has:
+ *  - options: ["A) text", "B) text", ...] with guaranteed letter prefixes
+ *  - correct: single uppercase letter "A", "B", "C", or "D"
+ */
+function normalizeQuestions(rawQuestions) {
+  if (!rawQuestions?.length) return [];
+  const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  return rawQuestions.map(q => {
+    // 1. Normalize options — ensure each has a letter prefix
+    const options = (q.options || []).map((opt, i) => {
+      const s = String(opt).trim();
+      // Check if option already starts with a letter/number prefix like "A)" "A." "1)"
+      if (/^[A-Fa-f][).:\s]/.test(s) || /^\d[).:\s]/.test(s)) {
+        // Re-prefix with canonical letter to standardize
+        const text = s.replace(/^[A-Fa-f0-9][).:\s]+\s*/, '');
+        return `${LETTERS[i]}) ${text}`;
+      }
+      // No prefix — add one
+      return `${LETTERS[i]}) ${s}`;
+    });
+
+    // 2. Normalize correct answer to a single uppercase letter
+    let correct = 'A'; // fallback
+    const raw = String(q.correct ?? '').trim();
+
+    if (raw.length === 0) {
+      correct = 'A';
+    } else if (typeof q.correct === 'number') {
+      // Numeric index — LLMs typically use 1-based (1=A, 2=B, etc.)
+      // but could be 0-based. If value >= options.length, treat as 1-based.
+      const idx = q.correct >= 1 ? q.correct - 1 : q.correct;
+      correct = LETTERS[Math.max(0, Math.min(idx, options.length - 1))] || 'A';
+    } else if (/^[A-Fa-f]$/.test(raw)) {
+      // Single letter like "A" or "a"
+      correct = raw.toUpperCase();
+    } else if (/^[A-Fa-f][).:\s]/.test(raw)) {
+      // Letter with delimiter like "A)" or "A." or "A) Full text"
+      correct = raw.charAt(0).toUpperCase();
+    } else if (/^\d$/.test(raw)) {
+      // Single digit like "1"
+      const idx = parseInt(raw, 10);
+      correct = LETTERS[Math.min(idx <= 0 ? 0 : idx - 1, options.length - 1)] || 'A';
+    } else {
+      // Full option text match — find which option it matches
+      const lowerRaw = raw.toLowerCase();
+      const matchIdx = options.findIndex(opt => {
+        const optText = opt.replace(/^[A-F][)]\s*/, '').toLowerCase();
+        return optText === lowerRaw || opt.toLowerCase() === lowerRaw;
+      });
+      if (matchIdx >= 0) {
+        correct = LETTERS[matchIdx];
+      } else {
+        // Partial match — check if correct text is contained in any option
+        const partialIdx = options.findIndex(opt => opt.toLowerCase().includes(lowerRaw));
+        if (partialIdx >= 0) {
+          correct = LETTERS[partialIdx];
+        } else {
+          // Last resort: try matching against original options before normalization
+          const origIdx = (q.options || []).findIndex(opt =>
+            String(opt).toLowerCase().includes(lowerRaw) || lowerRaw.includes(String(opt).toLowerCase())
+          );
+          correct = origIdx >= 0 ? LETTERS[origIdx] : 'A';
+        }
+      }
+    }
+
+    return {
+      ...q,
+      options,
+      correct,
+    };
+  });
+}
 
 export default function QuizView({ quiz, onClose, onRetry }) {
   const [currentQ, setCurrentQ] = useState(0);
@@ -18,17 +100,39 @@ export default function QuizView({ quiz, onClose, onRetry }) {
   const [showCorrectFlash, setShowCorrectFlash] = useState(false);
   const [showWrongShake, setShowWrongShake] = useState(false);
 
-  const questions = quiz?.questions || [];
+  const questions = useMemo(() => normalizeQuestions(quiz?.questions), [quiz]);
   if (!questions.length) return null;
 
   const question = questions[currentQ];
   const isCorrect = selected === question.correct;
 
+  /**
+   * Write userAnswer back onto the quiz in the scan store so that
+   * when the session is saved to history, each question has the
+   * userAnswer field for score calculation.
+   */
+  const syncAnswerToStore = useCallback((questionIndex, answerLetter) => {
+    try {
+      const storeQuiz = useScanStore.getState().quiz;
+      if (storeQuiz?.questions?.[questionIndex]) {
+        const updatedQuestions = [...storeQuiz.questions];
+        updatedQuestions[questionIndex] = {
+          ...updatedQuestions[questionIndex],
+          userAnswer: answerLetter,
+        };
+        useScanStore.setState({ quiz: { ...storeQuiz, questions: updatedQuestions } });
+      }
+    } catch { /* non-critical — history stats may be off but quiz still works */ }
+  }, []);
+
   const handleSelect = (option) => {
     if (showResult) return;
-    const letter = option.charAt(0);
+    const letter = option.charAt(0).toUpperCase();
     setSelected(letter);
     setShowResult(true);
+
+    // Sync to store for history persistence
+    syncAnswerToStore(currentQ, letter);
 
     if (letter === question.correct) {
       setScore(s => s + 1);
@@ -172,7 +276,8 @@ export default function QuizView({ quiz, onClose, onRetry }) {
       {/* Options */}
       <div style={styles.options} className="stagger-children">
         {question.options.map((opt, i) => {
-          const letter = opt.charAt(0);
+          const letter = opt.charAt(0).toUpperCase();
+          const optionText = opt.replace(/^[A-F][)]\s*/, '');
           const isSelected = selected === letter;
           const isAnswer = letter === question.correct;
           let optionStyle = { ...styles.option };
@@ -190,7 +295,7 @@ export default function QuizView({ quiz, onClose, onRetry }) {
               <span style={{ ...styles.optionLetter, background: showResult && isAnswer ? 'var(--success)' : showResult && isSelected && !isCorrect ? 'var(--error)' : `var(--primary)` }}>
                 {letter}
               </span>
-              <span style={styles.optionText}>{opt.substring(3)}</span>
+              <span style={styles.optionText}>{optionText}</span>
               {showResult && isAnswer && <CheckCircle size={20} color="var(--success)" />}
               {showResult && isSelected && !isCorrect && <XCircle size={20} color="var(--error)" />}
             </button>

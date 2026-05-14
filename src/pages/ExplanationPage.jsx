@@ -26,7 +26,7 @@ function BackButton({ onClick, label = 'Back' }) {
 export default function ExplanationPage() {
   const navigate = useNavigate();
   const {
-    explanation, isStreaming, capturedImage,
+    explanation, isStreaming, capturedImage, documentContent,
     quizLoading, flashcardsLoading,
     abort, deepDive, simplify, translate,
     askFollowUp, generateQuiz, generateFlashcards,
@@ -38,15 +38,36 @@ export default function ExplanationPage() {
   const autoRead = useAccessibilityStore((s) => s.autoReadExplanations);
   const speechRate = useAccessibilityStore((s) => s.speechRate);
   const prevStreamingRef = useRef(isStreaming);
+  const autoSavedRef = useRef(false);
 
-  // Auto-read explanation for blind users when streaming finishes
+  // Auto-save to history when explanation streaming completes (not viewing history)
   useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming && explanation && !viewingSession && !autoSavedRef.current) {
+      const hasContent = capturedImage || documentContent;
+      if (hasContent && explanation && !explanation.startsWith('**Connection Error**')) {
+        autoSavedRef.current = true;
+        const thumbnailSource = capturedImage || documentContent?.preview || null;
+        saveSession({
+          image: thumbnailSource,
+          explanation,
+          subject: settings.subject,
+          language: settings.language,
+          quiz: useScanStore.getState().quiz,
+          documentMeta: documentContent ? {
+            fileName: documentContent.fileName,
+            type: documentContent.type,
+            pageCount: documentContent.pageCount,
+          } : null,
+        }).catch(err => console.warn('Auto-save failed:', err));
+      }
+    }
+    // Auto-read explanation for blind users when streaming finishes
     if (prevStreamingRef.current && !isStreaming && explanation && autoRead) {
       announce('Explanation ready. Reading aloud.');
       speechService.speak(explanation, { language: settings.language, rate: speechRate });
     }
     prevStreamingRef.current = isStreaming;
-  }, [isStreaming, explanation, autoRead, settings.language, speechRate]);
+  }, [isStreaming, explanation, autoRead, settings.language, speechRate, capturedImage, documentContent, viewingSession, saveSession, settings.subject]);
 
   // Announce streaming status
   useEffect(() => {
@@ -54,7 +75,11 @@ export default function ExplanationPage() {
   }, [isStreaming]);
 
   const isViewingHistory = !!viewingSession;
-  const imagePreview = isViewingHistory ? viewingSession?.image : capturedImage;
+  // For documents, use the preview image from documentContent (e.g. first PDF page)
+  // or fall back to the camera-captured image
+  const imagePreview = isViewingHistory
+    ? viewingSession?.image
+    : capturedImage || documentContent?.preview || null;
 
   const handleBack = useCallback(() => {
     if (isViewingHistory) {
@@ -89,20 +114,30 @@ export default function ExplanationPage() {
   }, [explanation, settings.language, translate]);
 
   const handleSave = useCallback(async () => {
-    if (capturedImage && explanation) {
+    // Allow saving for BOTH image scans AND document uploads
+    const hasContent = capturedImage || documentContent;
+    if (hasContent && explanation) {
       try {
+        // For documents, use the preview (first PDF page) as the thumbnail source
+        const thumbnailSource = capturedImage || documentContent?.preview || null;
         await saveSession({
-          image: capturedImage,
+          image: thumbnailSource,
           explanation,
           subject: settings.subject,
           language: settings.language,
           quiz: useScanStore.getState().quiz,
+          // Store document metadata so history knows this was a document scan
+          documentMeta: documentContent ? {
+            fileName: documentContent.fileName,
+            type: documentContent.type,
+            pageCount: documentContent.pageCount,
+          } : null,
         });
       } catch (err) {
         console.warn('Failed to save session:', err);
       }
     }
-  }, [capturedImage, explanation, settings, saveSession]);
+  }, [capturedImage, documentContent, explanation, settings, saveSession]);
 
   return (
     <>

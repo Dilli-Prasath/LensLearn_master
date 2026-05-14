@@ -153,7 +153,38 @@ export const useScanStore = create((set, get) => ({
         language, difficulty, numQuestions,
       });
       if (quizData.questions?.length > 0) {
-        set({ quiz: quizData, quizLoading: false });
+        // Normalize the correct answer field to a single uppercase letter
+        // so that history stats (q.userAnswer === q.correct) always match.
+        const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+        const normalized = {
+          ...quizData,
+          questions: quizData.questions.map(q => {
+            const raw = String(q.correct ?? '').trim();
+            let correct = 'A';
+            if (/^[A-Fa-f]$/.test(raw)) {
+              correct = raw.toUpperCase();
+            } else if (/^[A-Fa-f][).:\s]/.test(raw)) {
+              correct = raw.charAt(0).toUpperCase();
+            } else if (typeof q.correct === 'number') {
+              // LLMs typically use 1-based indexing (1=A, 2=B)
+              const idx = q.correct >= 1 ? q.correct - 1 : q.correct;
+              correct = LETTERS[Math.max(0, Math.min(idx, (q.options?.length || 4) - 1))] || 'A';
+            } else if (/^\d$/.test(raw)) {
+              const idx = parseInt(raw, 10);
+              correct = LETTERS[Math.min(idx <= 0 ? 0 : idx - 1, (q.options?.length || 4) - 1)] || 'A';
+            } else if (raw.length > 1) {
+              // Full text match against options
+              const lowerRaw = raw.toLowerCase();
+              const matchIdx = (q.options || []).findIndex(opt =>
+                String(opt).toLowerCase().includes(lowerRaw) ||
+                lowerRaw.includes(String(opt).replace(/^[A-Fa-f0-9][).:\s]+\s*/, '').toLowerCase())
+              );
+              correct = matchIdx >= 0 ? LETTERS[matchIdx] : 'A';
+            }
+            return { ...q, correct };
+          }),
+        };
+        set({ quiz: normalized, quizLoading: false });
         return true; // signal success for navigation
       }
     } catch (err) {

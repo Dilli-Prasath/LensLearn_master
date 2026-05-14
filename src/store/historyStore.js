@@ -103,7 +103,7 @@ export const useHistoryStore = create(
       sessions: [],
 
       // ── Save a new session (compresses image to thumbnail) ──
-      saveSession: async ({ image, explanation, subject, language, quiz }) => {
+      saveSession: async ({ image, explanation, subject, language, quiz, documentMeta }) => {
         // Compress image to small thumbnail to avoid localStorage quota issues
         const thumbnail = image ? await compressImageToThumbnail(image) : null;
         const session = {
@@ -119,6 +119,8 @@ export const useHistoryStore = create(
           notes: '',
           rating: null,
           studyTime: 0,
+          // Document metadata — stores file info for document-based scans
+          documentMeta: documentMeta || null,
         };
         set((state) => ({
           sessions: [session, ...state.sessions].slice(0, MAX_SESSIONS),

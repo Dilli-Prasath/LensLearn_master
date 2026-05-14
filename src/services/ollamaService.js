@@ -23,15 +23,54 @@ const getDeviceTier = () => {
 };
 
 const DEVICE_TIER = getDeviceTier();
-const MAX_TOKENS = DEVICE_TIER === 'low' ? 2048 : DEVICE_TIER === 'medium' ? 3072 : 4096;
+const MAX_TOKENS = DEVICE_TIER === 'low' ? 1536 : DEVICE_TIER === 'medium' ? 2048 : 3072;
 
-// Gemma 4 recommended sampling parameters (adaptive to device)
+// Max input text length to send to the model (characters).
+// Prevents extremely long documents from overwhelming the model and causing timeouts.
+const MAX_INPUT_TEXT = DEVICE_TIER === 'low' ? 4000 : DEVICE_TIER === 'medium' ? 8000 : 12000;
+
+// Max number of page images to include for PDF analysis
+const MAX_PAGE_IMAGES = DEVICE_TIER === 'low' ? 1 : DEVICE_TIER === 'medium' ? 2 : 3;
+
+// Gemma 4 optimized sampling parameters — tuned for SPEED
+// Lower temperature = more deterministic = faster convergence
+// Lower num_predict = shorter responses = faster completion
 const GEMMA4_OPTIONS = {
-  temperature: 1.0,
-  top_p: 0.95,
-  top_k: 64,
+  temperature: 0.7,
+  top_p: 0.9,
+  top_k: 40,
   num_predict: MAX_TOKENS,
 };
+
+// Fast options for structured JSON output (quiz, flashcards, key terms)
+const GEMMA4_FAST_OPTIONS = {
+  temperature: 0.4,
+  top_p: 0.85,
+  top_k: 30,
+  num_predict: DEVICE_TIER === 'low' ? 1024 : 1536,
+};
+
+/**
+ * Truncate text to a maximum length, preserving sentence boundaries.
+ * Adds a note when truncation occurs so the model knows content was cut.
+ */
+function truncateText(text, maxLen = MAX_INPUT_TEXT) {
+  if (!text || text.length <= maxLen) return text;
+  // Find the last sentence boundary before maxLen
+  const truncated = text.substring(0, maxLen);
+  const lastPeriod = truncated.lastIndexOf('.');
+  const lastNewline = truncated.lastIndexOf('\n');
+  const cutPoint = Math.max(lastPeriod, lastNewline, maxLen * 0.8);
+  return truncated.substring(0, cutPoint + 1) + '\n\n[...document truncated for faster processing. Key content shown above.]';
+}
+
+/**
+ * Limit the number of images to reduce processing time.
+ */
+function limitImages(images, max = MAX_PAGE_IMAGES) {
+  if (!images || images.length <= max) return images;
+  return images.slice(0, max);
+}
 
 class OllamaService {
   constructor() {
@@ -112,33 +151,27 @@ class OllamaService {
       onStream = null
     } = options;
 
-    const systemPrompt = `You are LensLearn, a patient and encouraging tutor. Help students understand their learning material.
-
-RULES:
-- Explain in ${language}. Use simple, clear language appropriate for ${gradeLevel} students.
-- If the content shows a math problem, solve it step-by-step showing all work.
-- If it shows text/theory, summarize the key concepts and explain them simply.
-- If it shows a diagram/chart, describe what it represents and explain the concept.
-- Use analogies and real-world examples students can relate to.
-- End with 1-2 quick review questions to check understanding.
-- Be encouraging and supportive.
-- Format your response with clear sections using markdown.`;
+    const systemPrompt = `You are LensLearn, an encouraging tutor. Explain in ${language} for ${gradeLevel} students.
+Rules: Use simple language. For math, solve step-by-step. For text, summarize key concepts. For diagrams, describe and explain. Use real-world analogies. End with 1-2 review questions. Use markdown formatting. Be concise but thorough.`;
 
     let userContent = '';
+    // Truncate text and limit images for faster processing
+    const safeText = truncateText(content.text);
+    const safeImages = limitImages(content.images);
 
-    if (content.text && content.images?.length) {
-      // Mixed: PDF with images — send text + images
-      userContent = `I have a document with both text and visual content. Here is the extracted text:\n\n${content.text}\n\nI'm also including images of the pages for any diagrams, charts, or visual content. Please explain everything thoroughly.`;
-    } else if (content.text) {
+    if (safeText && safeImages?.length) {
+      // Mixed: PDF with images — send truncated text + limited images
+      userContent = `I have a document with both text and visual content. Here is the extracted text:\n\n${safeText}\n\nI'm also including images of the pages for any diagrams, charts, or visual content. Please explain the key concepts clearly and concisely.`;
+    } else if (safeText) {
       // Text-only: DOCX, TXT, extracted PDF text
       userContent = subject === 'auto-detect'
-        ? `Here is content from a document. Please explain what it's teaching:\n\n${content.text}`
-        : `This is from a ${subject} document. Explain this content:\n\n${content.text}`;
+        ? `Here is content from a document. Please explain the key concepts clearly:\n\n${safeText}`
+        : `This is from a ${subject} document. Explain the key concepts:\n\n${safeText}`;
     } else {
       // Image-only: camera capture or image upload
       userContent = subject === 'auto-detect'
-        ? `Look at this textbook page and explain what it's teaching. Give a step-by-step explanation.`
-        : `This is from a ${subject} textbook. Explain this content with a step-by-step explanation.`;
+        ? `Look at this textbook page and explain what it's teaching. Give a clear explanation.`
+        : `This is from a ${subject} textbook. Explain this content clearly.`;
     }
 
     const messages = [
@@ -146,11 +179,12 @@ RULES:
       {
         role: 'user',
         content: userContent,
-        ...(content.images?.length > 0 && { images: content.images })
+        ...(safeImages?.length > 0 && { images: safeImages })
       }
     ];
 
-    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
+    // Skip thinking mode for faster responses — the quality tradeoff is worth it for speed
+    return this._streamOrChat(messages, onStream);
   }
 
   /**
@@ -168,6 +202,9 @@ RULES:
 
     const systemPrompt = `You are a quiz generator for LensLearn. Create engaging quiz questions in ${language}. You MUST respond with valid JSON only, no other text.`;
 
+    // Truncate content for quiz generation — we don't need the full text
+    const safeContent = truncateText(content, Math.min(MAX_INPUT_TEXT, 6000));
+
     const userPrompt = `Based on this content, create ${numQuestions} ${difficulty}-difficulty multiple choice questions. Respond with ONLY this JSON format:
 {
   "questions": [
@@ -180,7 +217,7 @@ RULES:
   ]
 }
 
-Content:\n${content}`;
+Content:\n${safeContent}`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -192,9 +229,8 @@ Content:\n${content}`;
         model: this.model,
         messages,
         format: 'json',
-        ...(this.supportsThinking ? { think: true } : {}),
         keep_alive: '10m',
-        options: GEMMA4_OPTIONS,
+        options: GEMMA4_FAST_OPTIONS,
       });
 
       const text = response.message?.content || '';
@@ -206,7 +242,7 @@ Content:\n${content}`;
           model: this.model,
           messages,
           keep_alive: '10m',
-          options: GEMMA4_OPTIONS,
+          options: GEMMA4_FAST_OPTIONS,
         });
         const text = response.message?.content || '';
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -225,6 +261,8 @@ Content:\n${content}`;
 
     const systemPrompt = `You are a flashcard generator for LensLearn. Create educational flashcards in ${language}. You MUST respond with valid JSON only.`;
 
+    const safeContent = truncateText(content, Math.min(MAX_INPUT_TEXT, 6000));
+
     const userPrompt = `Based on this content, create 5-8 flashcards. Respond with ONLY this JSON format:
 {
   "flashcards": [
@@ -235,7 +273,7 @@ Content:\n${content}`;
   ]
 }
 
-Content:\n${content}`;
+Content:\n${safeContent}`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -247,9 +285,8 @@ Content:\n${content}`;
         model: this.model,
         messages,
         format: 'json',
-        ...(this.supportsThinking ? { think: true } : {}),
         keep_alive: '10m',
-        options: GEMMA4_OPTIONS,
+        options: GEMMA4_FAST_OPTIONS,
       });
 
       const text = response.message?.content || '';
@@ -260,7 +297,7 @@ Content:\n${content}`;
           model: this.model,
           messages,
           keep_alive: '10m',
-          options: GEMMA4_OPTIONS,
+          options: GEMMA4_FAST_OPTIONS,
         });
         const text = response.message?.content || '';
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -345,10 +382,10 @@ Content:\n${content}`;
 
     const messages = [
       { role: 'system', content: `You are LensLearn. Create a comprehensive study summary in ${language}. Include key concepts, important terms, and main takeaways. Format with markdown.` },
-      { role: 'user', content: `Summarize this educational content:\n\n${text}` }
+      { role: 'user', content: `Summarize this educational content:\n\n${truncateText(text)}` }
     ];
 
-    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
+    return this._streamOrChat(messages, onStream);
   }
 
   /**
@@ -360,7 +397,7 @@ Content:\n${content}`;
         model: this.model,
         messages,
         stream: true,
-        keep_alive: '10m',
+        keep_alive: '15m',
         options: GEMMA4_OPTIONS,
         ...extraOpts,
       });
@@ -378,7 +415,7 @@ Content:\n${content}`;
     const response = await this.ollama.chat({
       model: this.model,
       messages,
-      keep_alive: '10m',
+      keep_alive: '15m',
       options: GEMMA4_OPTIONS,
       ...extraOpts,
     });
@@ -397,7 +434,7 @@ Content:\n${content}`;
       { role: 'user', content: `Provide a deep dive explanation of this content:\n\n${content}` }
     ];
 
-    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
+    return this._streamOrChat(messages, onStream);
   }
 
   /**
@@ -405,6 +442,8 @@ Content:\n${content}`;
    */
   async extractKeyTerms(content, options = {}) {
     const { language = 'English' } = options;
+
+    const safeContent = truncateText(content, Math.min(MAX_INPUT_TEXT, 6000));
 
     const messages = [
       { role: 'system', content: `You are a vocabulary expert. Extract key terms from educational content in ${language}. Respond with ONLY valid JSON.` },
@@ -419,7 +458,7 @@ Content:\n${content}`;
   ]
 }
 
-Content:\n${content}` }
+Content:\n${safeContent}` }
     ];
 
     try {
@@ -428,7 +467,7 @@ Content:\n${content}` }
         messages,
         format: 'json',
         keep_alive: '10m',
-        options: GEMMA4_OPTIONS,
+        options: GEMMA4_FAST_OPTIONS,
       });
 
       const text = response.message?.content || '';
@@ -439,7 +478,7 @@ Content:\n${content}` }
           model: this.model,
           messages,
           keep_alive: '10m',
-          options: GEMMA4_OPTIONS,
+          options: GEMMA4_FAST_OPTIONS,
         });
         const text = response.message?.content || '';
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -461,7 +500,7 @@ Content:\n${content}` }
       { role: 'user', content: `Solve this problem step by step:\n\n${content}` }
     ];
 
-    return this._streamOrChat(messages, onStream, this.supportsThinking ? { think: true } : {});
+    return this._streamOrChat(messages, onStream);
   }
 
   /**
@@ -469,6 +508,8 @@ Content:\n${content}` }
    */
   async generateStudyPlan(content, options = {}) {
     const { language = 'English' } = options;
+
+    const safeContent = truncateText(content, Math.min(MAX_INPUT_TEXT, 4000));
 
     const messages = [
       { role: 'system', content: `You are an educational planner. Create a structured study plan in ${language}. Respond with ONLY valid JSON.` },
@@ -484,7 +525,7 @@ Content:\n${content}` }
   ]
 }
 
-Topic:\n${content}` }
+Topic:\n${safeContent}` }
     ];
 
     try {
@@ -493,7 +534,7 @@ Topic:\n${content}` }
         messages,
         format: 'json',
         keep_alive: '10m',
-        options: GEMMA4_OPTIONS,
+        options: GEMMA4_FAST_OPTIONS,
       });
 
       const text = response.message?.content || '';
@@ -504,7 +545,7 @@ Topic:\n${content}` }
           model: this.model,
           messages,
           keep_alive: '10m',
-          options: GEMMA4_OPTIONS,
+          options: GEMMA4_FAST_OPTIONS,
         });
         const text = response.message?.content || '';
         const jsonMatch = text.match(/\{[\s\S]*\}/);

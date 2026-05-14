@@ -64,6 +64,13 @@ const VARIANTS = {
     hoverBg: '#059669',
     shadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
   },
+  warning: {
+    background: '#f59e0b',
+    color: '#ffffff',
+    border: 'none',
+    hoverBg: '#d97706',
+    shadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+  },
   glass: {
     background: 'rgba(255, 255, 255, 0.06)',
     color: 'var(--text-primary, #f1f5f9)',
