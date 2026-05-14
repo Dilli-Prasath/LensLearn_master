@@ -4,7 +4,7 @@
  * All components that read sessions will auto-rerender on changes.
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 const MAX_SESSIONS = 50;
 const THUMBNAIL_MAX_DIM = 200;
@@ -91,28 +91,10 @@ const safeStorage = {
   },
 };
 
-/* ─── Subject auto-detection ─── */
-const SUBJECT_KEYWORDS = {
-  math: ['equation', 'algebra', 'geometry', 'calculus', 'number', 'solve', 'formula', 'derivative', 'integral', 'matrix', 'trigonometry', 'statistics', 'probability'],
-  science: ['atom', 'molecule', 'reaction', 'energy', 'force', 'physics', 'chemistry', 'biology', 'cell', 'organism', 'electron', 'gravity', 'evolution', 'photosynthesis'],
-  english: ['literature', 'grammar', 'vocabulary', 'sentence', 'paragraph', 'write', 'author', 'poem', 'narrative', 'essay', 'metaphor', 'syntax'],
-  history: ['war', 'period', 'revolution', 'century', 'empire', 'historical', 'ancient', 'medieval', 'modern', 'civilization', 'dynasty', 'treaty'],
-  geography: ['continent', 'ocean', 'climate', 'population', 'map', 'region', 'latitude', 'longitude', 'terrain', 'ecosystem'],
-  computer: ['algorithm', 'programming', 'variable', 'function', 'data', 'software', 'hardware', 'binary', 'network', 'database', 'code', 'loop'],
-};
+import { detectSubjectFromText } from '../config/subjects';
 
 function detectSubject(text) {
-  const lower = (text || '').toLowerCase();
-  let bestMatch = 'General';
-  let maxMatches = 0;
-  Object.entries(SUBJECT_KEYWORDS).forEach(([subject, keywords]) => {
-    const matches = keywords.filter(k => lower.includes(k)).length;
-    if (matches > maxMatches) {
-      maxMatches = matches;
-      bestMatch = subject.charAt(0).toUpperCase() + subject.slice(1);
-    }
-  });
-  return bestMatch;
+  return detectSubjectFromText(text);
 }
 
 export const useHistoryStore = create(
@@ -227,7 +209,7 @@ export const useHistoryStore = create(
     {
       name: 'lenslearn-history-v2',
       version: 1,
-      storage: safeStorage,
+      storage: createJSONStorage(() => safeStorage),
       partialize: (state) => ({ sessions: state.sessions }),
     }
   )

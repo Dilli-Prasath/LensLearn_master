@@ -1,5 +1,5 @@
-import { TrendingUp, BookOpen, Languages, Flame, ArrowRight, Target, Trophy, Sparkles, Clock, Zap, Star, ChevronRight, Layers } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, BookOpen, Languages, Flame, ArrowRight, Target, Trophy, Sparkles, Clock, Zap, Star, ChevronRight, Layers, Plus, X } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHistoryStore, useSettingsStore, useConnectionStore } from '../store';
 import Card from '../lib/components/Card';
@@ -7,6 +7,7 @@ import Button from '../lib/components/Button';
 import Badge from '../lib/components/Badge';
 import EmptyState from '../lib/components/EmptyState';
 import ModelSelector from '../lib/components/ModelSelector';
+import { SUBJECT_REGISTRY, SUBJECT_LIST, DEFAULT_QUICK_SUBJECTS } from '../config/subjects';
 
 const QUOTES = [
   'Every expert was once a beginner.',
@@ -25,15 +26,6 @@ const STUDY_TIPS = [
   { icon: '🧩', title: 'Connect Ideas', tip: 'Link new concepts to things you already know for deeper understanding.' },
 ];
 
-const QUICK_SUBJECTS = [
-  { name: 'Math', icon: '📐', color: '#6366f1' },
-  { name: 'Science', icon: '🔬', color: '#10b981' },
-  { name: 'History', icon: '📖', color: '#f59e0b' },
-  { name: 'English', icon: '✍️', color: '#ef4444' },
-  { name: 'Biology', icon: '🧬', color: '#06b6d4' },
-  { name: 'Chemistry', icon: '⚗️', color: '#8b5cf6' },
-];
-
 const ACHIEVEMENTS = [
   { id: 'first_scan', icon: '📸', title: 'First Scan', desc: 'Complete your first scan', threshold: 1 },
   { id: 'five_scans', icon: '🔥', title: 'Getting Started', desc: 'Complete 5 scans', threshold: 5 },
@@ -48,12 +40,41 @@ export default function HomePage() {
   const switchModel = useConnectionStore((s) => s.switchModel);
   const getStats = useHistoryStore((s) => s.getStats);
   const getRecent = useHistoryStore((s) => s.getRecent);
-  const DAILY_GOAL = settings.dailyGoal || 3;
+  const DAILY_GOAL = settings.dailyGoal || 5;
   const stats = getStats();
   const recentSessions = getRecent(3);
 
+  // Quick subjects — user customizable
+  const [quickSubjectIds, setQuickSubjectIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lenslearn-quick-subjects');
+      return saved ? JSON.parse(saved) : DEFAULT_QUICK_SUBJECTS;
+    } catch { return DEFAULT_QUICK_SUBJECTS; }
+  });
+  const [editingSubjects, setEditingSubjects] = useState(false);
+
+  const quickSubjects = useMemo(() =>
+    quickSubjectIds.map(id => SUBJECT_REGISTRY[id]).filter(Boolean),
+    [quickSubjectIds]
+  );
+
+  const toggleQuickSubject = useCallback((id) => {
+    setQuickSubjectIds(prev => {
+      const next = prev.includes(id)
+        ? prev.filter(s => s !== id)
+        : [...prev, id];
+      try { localStorage.setItem('lenslearn-quick-subjects', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
   // Router-based navigation callbacks
   const onScanClick = () => navigate('/scan');
+  const onSubjectScan = (subjectName) => {
+    // Set the subject preference and go to scan
+    useSettingsStore.getState().setSetting('subject', subjectName.toLowerCase());
+    navigate('/scan');
+  };
   const onHistoryClick = () => navigate('/history');
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
@@ -223,19 +244,75 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Quick Subjects — Hexagonal-Inspired Grid */}
+      {/* Quick Subjects — Customizable Grid */}
       <div style={st.section} className="fade-in">
-        <h2 style={st.sectionTitle}><Star size={16} /> Quick Subjects</h2>
-        <div style={st.subjectGrid} className="responsive-grid-3 stagger-children">
-          {QUICK_SUBJECTS.map(subject => (
-            <Button key={subject.name} variant="secondary" fullWidth style={st.subjectBtn} className="hover-lift" onClick={onScanClick}>
-              <div style={{ ...st.subjectIconBg, background: `${subject.color}15`, borderColor: `${subject.color}30` }}>
-                <span style={st.subjectIcon}>{subject.icon}</span>
-              </div>
-              <div style={st.subjectName}>{subject.name}</div>
-            </Button>
-          ))}
+        <div style={st.sectionHeader}>
+          <h2 style={{ ...st.sectionTitle, marginBottom: 0 }}><Star size={16} /> Quick Subjects</h2>
+          <button
+            style={st.editBtn}
+            onClick={() => setEditingSubjects(!editingSubjects)}
+            aria-label={editingSubjects ? 'Done editing' : 'Customize subjects'}
+          >
+            {editingSubjects ? 'Done' : 'Customize'}
+          </button>
         </div>
+
+        {editingSubjects ? (
+          /* ── Customization mode: show all subjects as toggleable chips ── */
+          <div style={st.customizeGrid}>
+            {SUBJECT_LIST.map(subject => {
+              const isSelected = quickSubjectIds.includes(subject.id);
+              return (
+                <button
+                  key={subject.id}
+                  style={{
+                    ...st.customizeChip,
+                    background: isSelected ? `${subject.color}20` : 'rgba(255,255,255,0.03)',
+                    border: `1.5px solid ${isSelected ? subject.color : 'rgba(255,255,255,0.08)'}`,
+                    color: isSelected ? subject.color : 'var(--text-muted)',
+                  }}
+                  onClick={() => toggleQuickSubject(subject.id)}
+                >
+                  <span style={st.customizeEmoji}>{subject.emoji}</span>
+                  <span style={st.customizeName}>{subject.shortName}</span>
+                  {isSelected ? (
+                    <X size={12} style={{ opacity: 0.6 }} />
+                  ) : (
+                    <Plus size={12} style={{ opacity: 0.4 }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Normal mode: show selected subjects with rich cards ── */
+          <div style={st.subjectGrid} className="responsive-grid-3 stagger-children">
+            {quickSubjects.map(subject => {
+              // Get scan count for this subject from history
+              const subjectScans = stats.totalScans > 0
+                ? useHistoryStore.getState().getSessionsBySubject(subject.shortName).length
+                : 0;
+              return (
+                <button
+                  key={subject.id}
+                  style={st.subjectBtn}
+                  className="hover-lift"
+                  onClick={() => onSubjectScan(subject.shortName)}
+                >
+                  <div style={{ ...st.subjectIconBg, background: `${subject.color}15`, borderColor: `${subject.color}30` }}>
+                    <span style={st.subjectIcon}>{subject.emoji}</span>
+                  </div>
+                  <div style={st.subjectName}>{subject.shortName}</div>
+                  {subjectScans > 0 && (
+                    <div style={{ ...st.subjectBadge, color: subject.color, background: `${subject.color}15` }}>
+                      {subjectScans} scan{subjectScans !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Recent Scans — Cards with Image Overlay */}
@@ -622,6 +699,41 @@ const st = {
     boxShadow: '0 0 6px rgba(99,102,241,0.4)',
   },
 
+  // Edit button
+  editBtn: {
+    background: 'none',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: 'var(--primary-light)',
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '4px 12px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.2s',
+  },
+
+  // Customize grid
+  customizeGrid: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  customizeChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 14px',
+    borderRadius: 20,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontSize: 13,
+    fontWeight: 600,
+    transition: 'all 0.2s',
+  },
+  customizeEmoji: { fontSize: 16 },
+  customizeName: { fontSize: 12, fontWeight: 600 },
+
   // Subjects
   subjectGrid: { /* responsive-grid-3 class handles the grid */ },
   subjectBtn: {
@@ -638,6 +750,7 @@ const st = {
     transition: 'all 0.2s',
     fontFamily: 'inherit',
     color: 'inherit',
+    width: '100%',
   },
   subjectIconBg: {
     width: 44,
@@ -651,6 +764,12 @@ const st = {
   },
   subjectIcon: { fontSize: 22 },
   subjectName: { fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center' },
+  subjectBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: 10,
+  },
 
   // Recent
   recentList: { display: 'flex', flexDirection: 'column', gap: 8 },

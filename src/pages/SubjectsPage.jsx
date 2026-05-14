@@ -1,607 +1,496 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
-  Calculator,
-  Microscope,
-  Scroll,
-  Globe,
-  BookMarked,
-  Dna,
-  Flame,
-  Zap,
-  Code,
-  Languages,
-  HelpCircle,
-  TrendingUp,
-  Target,
-  BookOpen,
-  ChevronRight,
-  Star,
-  Award,
-  BarChart3,
-  X,
+  Calculator, Microscope, Scroll, Globe, BookMarked, Dna, Flame, Zap, Code,
+  Languages, HelpCircle, TrendingUp, Target, BookOpen, ChevronRight, Star,
+  Award, BarChart3, X, Heart, Search, Grid3X3, List, LayoutGrid,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useHistoryStore } from '../store';
+import { useHistoryStore, useSettingsStore } from '../store';
 import Card from '../lib/components/Card';
 import Button from '../lib/components/Button';
 import Badge from '../lib/components/Badge';
 import EmptyState from '../lib/components/EmptyState';
+import { SUBJECT_REGISTRY, SUBJECT_LIST, SUBJECT_CATEGORIES, normalizeSubject as normalizeSubjectConfig } from '../config/subjects';
 
-const SUBJECT_CONFIG = {
-  math: { color: '#6366f1', icon: Calculator, gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))' },
-  science: { color: '#10b981', icon: Microscope, gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))' },
-  history: { color: '#f59e0b', icon: Scroll, gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))' },
-  geography: { color: '#06b6d4', icon: Globe, gradient: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.05))' },
-  literature: { color: '#d946ef', icon: BookMarked, gradient: 'linear-gradient(135deg, rgba(217, 70, 239, 0.15), rgba(217, 70, 239, 0.05))' },
-  biology: { color: '#14b8a6', icon: Dna, gradient: 'linear-gradient(135deg, rgba(20, 184, 166, 0.15), rgba(20, 184, 166, 0.05))' },
-  chemistry: { color: '#f97316', icon: Flame, gradient: 'linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.05))' },
-  physics: { color: '#8b5cf6', icon: Zap, gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05))' },
-  'computer science': { color: '#06b6d4', icon: Code, gradient: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.05))' },
-  language: { color: '#ec4899', icon: Languages, gradient: 'linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(236, 72, 153, 0.05))' },
-  other: { color: '#64748b', icon: HelpCircle, gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.15), rgba(100, 116, 139, 0.05))' },
+// ── Icon map ──
+const ICON_MAP = {
+  Calculator, Microscope, Scroll, Globe, BookMarked, Dna, Flame, Zap,
+  Code, Languages, HelpCircle, BarChart3, Heart,
 };
 
-const EXPLORE_SUBJECTS = [
-  { name: 'Math', icon: Calculator, color: '#6366f1', tip: 'Scan equations, graphs, or word problems' },
-  { name: 'Science', icon: Microscope, color: '#10b981', tip: 'Scan diagrams, experiments, or theories' },
-  { name: 'History', icon: Scroll, color: '#f59e0b', tip: 'Scan timelines, maps, or historical texts' },
-  { name: 'Biology', icon: Dna, color: '#14b8a6', tip: 'Scan cell diagrams, anatomy, or ecosystems' },
-  { name: 'Physics', icon: Zap, color: '#8b5cf6', tip: 'Scan formulas, circuits, or motion diagrams' },
-  { name: 'Literature', icon: BookMarked, color: '#d946ef', tip: 'Scan poems, passages, or book excerpts' },
-];
+function getIcon(name) {
+  const reg = SUBJECT_REGISTRY[name?.toLowerCase?.()];
+  return (reg && ICON_MAP[reg.iconName]) || HelpCircle;
+}
+
+function getConfig(name) {
+  const lower = name?.toLowerCase?.() || '';
+  return SUBJECT_REGISTRY[lower]
+    || Object.values(SUBJECT_REGISTRY).find(s => s.shortName.toLowerCase() === lower || s.name.toLowerCase().includes(lower))
+    || { color: '#64748b', gradient: 'linear-gradient(135deg, rgba(100,116,139,0.15), rgba(100,116,139,0.05))' };
+}
+
+// ── Inject responsive CSS ──
+const CSS_ID = 'subjects-page-css';
+function ensureCSS() {
+  if (document.getElementById(CSS_ID)) return;
+  const el = document.createElement('style');
+  el.id = CSS_ID;
+  el.textContent = `
+    /* ── GRID VIEW ── */
+    .sp-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    @media (min-width: 640px)  { .sp-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 900px)  { .sp-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; } }
+    @media (min-width: 1200px) { .sp-grid { grid-template-columns: repeat(5, 1fr); } }
+
+    /* ── COMPACT VIEW ── */
+    .sp-compact {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    @media (min-width: 640px)  { .sp-compact { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .sp-compact { grid-template-columns: repeat(3, 1fr); } }
+
+    /* ── LIST VIEW ── */
+    .sp-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── Scrollbar hide for tabs ── */
+    .sp-tabs::-webkit-scrollbar { display: none; }
+    .sp-tabs { scrollbar-width: none; }
+
+    /* ── Hover effects ── */
+    .sp-card-hover { transition: all 0.2s ease; }
+    .sp-card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+    }
+  `;
+  document.head.appendChild(el);
+}
 
 export default function SubjectsPage() {
   const navigate = useNavigate();
-  const onScanClick = () => navigate('/scan');
+  const onScan = (name) => {
+    if (name) useSettingsStore.getState().setSetting('subject', name.toLowerCase());
+    navigate('/scan');
+  };
+
   const [expandedSubject, setExpandedSubject] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem('ll-subjects-view') || 'grid'; } catch { return 'grid'; }
+  });
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
   const sessions = useHistoryStore((s) => s.sessions);
 
-  const { subjectCards, totalScans, avgProgress, topSubject } = useMemo(() => {
-    const groupedBySubject = {};
-    sessions.forEach(session => {
-      const subject = normalizeSubject(session.subject);
-      if (!groupedBySubject[subject]) groupedBySubject[subject] = [];
-      groupedBySubject[subject].push(session);
+  useEffect(() => { ensureCSS(); }, []);
+  useEffect(() => {
+    try { localStorage.setItem('ll-subjects-view', viewMode); } catch {}
+  }, [viewMode]);
+
+  // ── Studied subjects ──
+  const { studied, totalScans, avgProgress, topSubject } = useMemo(() => {
+    const grouped = {};
+    sessions.forEach(s => {
+      const sub = normalizeSubjectConfig(s.subject);
+      (grouped[sub] ??= []).push(s);
     });
-
-    const cards = Object.entries(groupedBySubject).map(([subject, subjectSessions]) => {
-      const quizzes = subjectSessions
-        .filter(s => s.quiz)
-        .map(s => {
-          const correct = s.quiz.questions?.filter(q => q.userAnswer === q.correct).length || 0;
-          const total = s.quiz.questions?.length || 1;
-          return (correct / total) * 100;
-        });
-      const progress = quizzes.length > 0
-        ? Math.round(quizzes.reduce((a, b) => a + b) / quizzes.length)
-        : 0;
-      const lastStudied = new Date(subjectSessions[0].timestamp);
-
-      // Determine mastery level
+    const cards = Object.entries(grouped).map(([subject, list]) => {
+      const quizzes = list.filter(s => s.quiz).map(s => {
+        const c = s.quiz.questions?.filter(q => q.userAnswer === q.correct).length || 0;
+        return (c / (s.quiz.questions?.length || 1)) * 100;
+      });
+      const progress = quizzes.length ? Math.round(quizzes.reduce((a, b) => a + b) / quizzes.length) : 0;
       let level = 'Beginner';
-      if (subjectSessions.length >= 10 && progress >= 80) level = 'Master';
-      else if (subjectSessions.length >= 5 && progress >= 60) level = 'Advanced';
-      else if (subjectSessions.length >= 3) level = 'Intermediate';
-
-      return { subject, sessions: subjectSessions, progress, lastStudied, count: subjectSessions.length, level };
+      if (list.length >= 10 && progress >= 80) level = 'Master';
+      else if (list.length >= 5 && progress >= 60) level = 'Advanced';
+      else if (list.length >= 3) level = 'Intermediate';
+      return { subject, sessions: list, progress, lastStudied: new Date(list[0].timestamp), count: list.length, level };
     });
-
     cards.sort((a, b) => b.count - a.count);
-
-    const total = cards.reduce((sum, c) => sum + c.count, 0);
-    const avg = cards.length > 0 ? Math.round(cards.reduce((sum, c) => sum + c.progress, 0) / cards.length) : 0;
-    const top = cards.length > 0 ? cards[0].subject : null;
-
-    return { subjectCards: cards, totalScans: total, avgProgress: avg, topSubject: top };
+    return {
+      studied: cards,
+      totalScans: cards.reduce((n, c) => n + c.count, 0),
+      avgProgress: cards.length ? Math.round(cards.reduce((n, c) => n + c.progress, 0) / cards.length) : 0,
+      topSubject: cards[0]?.subject || null,
+    };
   }, [sessions]);
 
+  // ── Filter explore subjects ──
+  const filtered = useMemo(() =>
+    SUBJECT_LIST
+      .filter(s => category === 'All' || s.category === category)
+      .filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.description.toLowerCase().includes(search.toLowerCase())),
+    [category, search]
+  );
+
+  const VIEW_MODES = [
+    { id: 'grid', icon: LayoutGrid, label: 'Grid' },
+    { id: 'compact', icon: Grid3X3, label: 'Compact' },
+    { id: 'list', icon: List, label: 'List' },
+  ];
+
+  const containerClass = viewMode === 'grid' ? 'sp-grid' : viewMode === 'compact' ? 'sp-compact' : 'sp-list';
+
   return (
-    <div style={styles.container}>
-      {subjectCards.length === 0 ? (
-        <div className="fade-in">
-          {/* Empty state with explore suggestions */}
-          <EmptyState
-            icon={BookOpen}
-            title="Start Your Learning Journey"
-            message="Scan textbook pages to track your progress across different subjects!"
-          />
-          <Button variant="primary" icon={Target} fullWidth onClick={onScanClick} style={{ marginTop: 16 }}>
+    <div style={S.page}>
+      {/* ── Category tabs ── */}
+      <div className="sp-tabs" style={S.tabs}>
+        {['All', ...Object.keys(SUBJECT_CATEGORIES)].map(c => (
+          <button key={c} style={{ ...S.tab, ...(category === c ? S.tabActive : {}) }} onClick={() => setCategory(c)}>
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Toolbar: search + view toggle ── */}
+      <div style={S.toolbar}>
+        <div style={S.searchWrap}>
+          <Search size={16} color="var(--text-muted)" />
+          <input type="text" placeholder="Search subjects..." value={search} onChange={e => setSearch(e.target.value)} style={S.searchInput} />
+          {search && <button style={S.clearBtn} onClick={() => setSearch('')}><X size={14} /></button>}
+        </div>
+        <div style={S.viewToggle}>
+          {VIEW_MODES.map(v => {
+            const VIcon = v.icon;
+            return (
+              <button key={v.id} style={{ ...S.vBtn, ...(viewMode === v.id ? S.vBtnActive : {}) }} onClick={() => setViewMode(v.id)} title={v.label}>
+                <VIcon size={16} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {studied.length === 0 ? (
+        /* ══════ EMPTY STATE ══════ */
+        <>
+          <EmptyState icon={BookOpen} title="Start Your Learning Journey" />
+          <Button variant="primary" icon={Target} fullWidth onClick={() => onScan()} style={{ marginTop: 16, marginBottom: 24 }}>
             Start Scanning
           </Button>
 
-          {/* Explore subjects */}
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <BookOpen size={18} color="var(--primary-light)" />
-              <h3 style={styles.sectionTitle}>Subjects to Explore</h3>
-            </div>
-            <div style={styles.exploreGrid} className="responsive-grid-2 stagger-children">
-              {EXPLORE_SUBJECTS.map((sub) => {
-                const Icon = sub.icon;
-                return (
-                  <Card key={sub.name} variant="glass" style={styles.exploreCard} className="hover-lift" onClick={onScanClick}>
-                    <div style={{ ...styles.exploreIcon, background: `${sub.color}20`, color: sub.color }}>
-                      <Icon size={24} />
-                    </div>
-                    <div style={styles.exploreName}>{sub.name}</div>
-                    <div style={styles.exploreTip}>{sub.tip}</div>
-                  </Card>
-                );
-              })}
-            </div>
+          <div style={S.sectionHead}>
+            <BookOpen size={18} color="var(--primary-light)" />
+            <h3 style={S.sectionTitle}>Subjects to Explore</h3>
+            <span style={S.sectionCount}>{filtered.length}</span>
           </div>
-        </div>
+
+          <div className={containerClass}>
+            {filtered.map(sub => (
+              <SubjectExploreCard key={sub.id} subject={sub} view={viewMode} onClick={() => onScan(sub.shortName)} />
+            ))}
+          </div>
+        </>
       ) : (
-        <div className="fade-in">
-          {/* Header with stats */}
-          <div style={styles.header} className="slide-in-left">
-            <h1 style={styles.title} className="gradient-text">Your Subjects</h1>
-            <p style={styles.subtitle}>
-              {subjectCards.length} subject{subjectCards.length !== 1 ? 's' : ''} studied
-            </p>
+        /* ══════ HAS HISTORY ══════ */
+        <>
+          {/* Stats */}
+          <div style={S.statsRow}>
+            <MiniStat icon={BarChart3} label="Scans" value={totalScans} color="var(--primary-light)" />
+            <MiniStat icon={TrendingUp} label="Avg Score" value={`${avgProgress}%`} color="#10b981" />
+            <MiniStat icon={Star} label="Subjects" value={studied.length} color="#f59e0b" />
           </div>
 
-          {/* Stats overview */}
-          <div style={styles.statsRow} className="responsive-grid-3 stagger-children">
-            <Card variant="glass" style={styles.statCard} className="hover-lift">
-              <BarChart3 size={18} color="var(--primary-light)" />
-              <div style={styles.statValue}>{totalScans}</div>
-              <div style={styles.statLabel}>Total Scans</div>
-            </Card>
-            <Card variant="glass" style={styles.statCard} className="hover-lift">
-              <TrendingUp size={18} color="var(--success)" />
-              <div style={styles.statValue}>{avgProgress}%</div>
-              <div style={styles.statLabel}>Avg Score</div>
-            </Card>
-            <Card variant="glass" style={styles.statCard} className="hover-lift">
-              <Star size={18} color="var(--accent)" />
-              <div style={styles.statValue}>{subjectCards.length}</div>
-              <div style={styles.statLabel}>Subjects</div>
-            </Card>
-          </div>
-
-          {/* Top subject highlight */}
           {topSubject && (
-            <div style={styles.topSubjectBanner} className="bounce-in">
-              <Award size={20} color="var(--accent)" />
-              <span style={styles.topSubjectText}>
-                <strong>{topSubject}</strong> is your most studied subject!
-              </span>
+            <div style={S.topBanner}>
+              <Award size={18} color="var(--accent, #f59e0b)" />
+              <span style={S.topText}><strong>{topSubject}</strong> is your top subject!</span>
             </div>
           )}
 
-          {/* View toggle */}
-          <div style={styles.viewToggle}>
-            <Button
-              variant={viewMode === 'grid' ? 'primary' : 'secondary'}
-              onClick={() => setViewMode('grid')}
-              style={styles.viewBtn}
-            >
-              Grid
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'primary' : 'secondary'}
-              onClick={() => setViewMode('list')}
-              style={styles.viewBtn}
-            >
-              List
-            </Button>
-          </div>
-
-          {/* Subject cards */}
-          <div style={viewMode === 'grid' ? styles.cardsGridView : styles.cardsListView} className="stagger-children">
-            {subjectCards.map(subject => (
-              <SubjectCard
-                key={subject.subject}
-                subject={subject}
-                isExpanded={expandedSubject === subject.subject}
-                viewMode={viewMode}
-                onToggle={() =>
-                  setExpandedSubject(expandedSubject === subject.subject ? null : subject.subject)
-                }
+          {/* Studied subjects */}
+          <div className={containerClass} style={{ marginBottom: 28 }}>
+            {studied.map(sub => (
+              <StudiedCard
+                key={sub.subject}
+                data={sub}
+                view={viewMode}
+                expanded={expandedSubject === sub.subject}
+                onToggle={() => setExpandedSubject(expandedSubject === sub.subject ? null : sub.subject)}
               />
             ))}
           </div>
 
           {/* Explore more */}
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <BookOpen size={18} color="var(--primary-light)" />
-              <h3 style={styles.sectionTitle}>Explore More</h3>
-            </div>
-            <div style={styles.exploreRow}>
-              {EXPLORE_SUBJECTS.filter(s => !subjectCards.find(c => c.subject.toLowerCase() === s.name.toLowerCase())).slice(0, 3).map((sub) => {
-                const Icon = sub.icon;
-                return (
-                  <Button key={sub.name} variant="secondary" icon={Icon} iconRight={ChevronRight} onClick={onScanClick} style={styles.exploreChip} className="hover-lift">
-                    {sub.name}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+          {filtered.filter(s => !studied.find(c => c.subject.toLowerCase() === s.shortName.toLowerCase())).length > 0 && (
+            <>
+              <div style={S.sectionHead}>
+                <BookOpen size={18} color="var(--primary-light)" />
+                <h3 style={S.sectionTitle}>Explore More</h3>
+              </div>
+              <div className={containerClass}>
+                {filtered
+                  .filter(s => !studied.find(c => c.subject.toLowerCase() === s.shortName.toLowerCase()))
+                  .map(sub => (
+                    <SubjectExploreCard key={sub.id} subject={sub} view={viewMode} onClick={() => onScan(sub.shortName)} />
+                  ))}
+              </div>
+            </>
+          )}
+        </>
       )}
 
-      <div style={styles.navPadding} />
+      <div style={{ height: 24 }} />
     </div>
   );
 }
 
-function SubjectCard({ subject, isExpanded, onToggle, viewMode }) {
-  const config = SUBJECT_CONFIG[subject.subject.toLowerCase()] || SUBJECT_CONFIG.other;
-  const Icon = config.icon;
+// ═══════════════════════════════════════════════════════════
+// COMPONENTS
+// ═══════════════════════════════════════════════════════════
 
-  const levelColors = {
-    'Beginner': '#64748b',
-    'Intermediate': '#06b6d4',
-    'Advanced': '#8b5cf6',
-    'Master': '#f59e0b',
-  };
+function SubjectExploreCard({ subject, view, onClick }) {
+  const Icon = ICON_MAP[subject.iconName] || HelpCircle;
 
-  const formatDate = (date) => {
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  if (viewMode === 'grid') {
+  if (view === 'list') {
     return (
-      <Card
-        variant="glass"
-        style={{ ...styles.gridCard, borderColor: `${config.color}30` }}
-        className="hover-lift"
-        onClick={onToggle}
-      >
-        <div style={{ ...styles.gridCardIcon, background: `${config.color}15`, color: config.color }}>
-          <Icon size={28} />
+      <div className="sp-card-hover" style={S.listRow} onClick={onClick} role="button" tabIndex={0}>
+        <div style={{ ...S.iconCircle, background: `${subject.color}18`, color: subject.color }}>
+          <Icon size={22} />
         </div>
-        <h3 style={styles.gridCardTitle}>{subject.subject}</h3>
-        <div style={styles.gridCardMeta}>{subject.count} scans</div>
-        <Badge style={{ background: `${levelColors[subject.level]}20`, color: levelColors[subject.level] }}>
-          {subject.level}
-        </Badge>
-        {/* Mini progress ring */}
-        <svg width="40" height="40" viewBox="0 0 40 40" style={{ margin: '8px auto 0' }}>
-          <circle cx="20" cy="20" r="16" fill="none" stroke="var(--border)" strokeWidth="3" />
-          <circle
-            cx="20" cy="20" r="16"
-            fill="none" stroke={config.color} strokeWidth="3"
-            strokeDasharray={`${100.5 * (subject.progress / 100)} 100.5`}
-            style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dasharray 0.8s ease' }}
-          />
-          <text x="20" y="20" textAnchor="middle" dominantBaseline="central"
-            style={{ fontSize: 10, fontWeight: 700, fill: 'var(--text-primary)' }}>
-            {subject.progress}%
-          </text>
-        </svg>
-      </Card>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={S.cardName}>{subject.shortName}</div>
+          <div style={S.cardDesc}>{subject.tip}</div>
+        </div>
+        <Badge style={{ background: `${subject.color}12`, color: subject.color, fontSize: 10, flexShrink: 0 }}>{subject.category}</Badge>
+        <ChevronRight size={16} color="var(--text-muted)" />
+      </div>
     );
   }
 
+  if (view === 'compact') {
+    return (
+      <div className="sp-card-hover" style={{ ...S.compactRow, borderLeftColor: subject.color }} onClick={onClick} role="button" tabIndex={0}>
+        <div style={{ ...S.iconCircleSm, background: `${subject.color}18`, color: subject.color }}>
+          <Icon size={18} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={S.cardName}>{subject.shortName}</div>
+          <div style={S.cardDescSm}>{subject.description}</div>
+        </div>
+        <Badge style={{ background: `${subject.color}12`, color: subject.color, fontSize: 9, flexShrink: 0 }}>{subject.category}</Badge>
+      </div>
+    );
+  }
+
+  // Grid view
   return (
-    <Card
-      variant="glass"
-      style={{ ...styles.card, background: config.gradient, borderLeft: `4px solid ${config.color}` }}
-      className="hover-lift"
-    >
-      <div style={styles.cardHeader} onClick={onToggle}>
-        <div style={styles.cardHeaderLeft}>
-          <div style={{ ...styles.cardIcon, color: config.color }}>
-            <Icon size={28} />
-          </div>
-          <div style={styles.cardInfo}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 style={styles.cardTitle}>{subject.subject}</h3>
-              <Badge style={{ background: `${levelColors[subject.level]}20`, color: levelColors[subject.level] }}>
-                {subject.level}
-              </Badge>
+    <div className="sp-card-hover" style={S.gridCard} onClick={onClick} role="button" tabIndex={0}>
+      <div style={{ ...S.iconCircleLg, background: `${subject.color}15`, color: subject.color }}>
+        <Icon size={28} />
+      </div>
+      <div style={S.gridName}>{subject.shortName}</div>
+      <div style={S.gridTip}>{subject.tip}</div>
+      <div style={S.gridDesc}>{subject.description}</div>
+      <Badge style={{ background: `${subject.color}12`, color: subject.color, fontSize: 10, marginTop: 4 }}>{subject.category}</Badge>
+    </div>
+  );
+}
+
+function StudiedCard({ data, view, expanded, onToggle }) {
+  const config = getConfig(data.subject);
+  const Icon = getIcon(data.subject);
+  const lc = { Beginner: '#64748b', Intermediate: '#06b6d4', Advanced: '#8b5cf6', Master: '#f59e0b' };
+
+  const ago = (d) => {
+    const ms = Date.now() - d;
+    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
+    if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`;
+    if (ms < 604800000) return `${Math.floor(ms / 86400000)}d ago`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  if (view === 'grid') {
+    return (
+      <div className="sp-card-hover" style={{ ...S.gridCard, borderColor: `${config.color}25` }} onClick={onToggle}>
+        <div style={{ ...S.iconCircleLg, background: `${config.color}15`, color: config.color }}><Icon size={28} /></div>
+        <div style={S.gridName}>{data.subject}</div>
+        <div style={S.gridTip}>{data.count} scan{data.count !== 1 ? 's' : ''}</div>
+        <Badge style={{ background: `${lc[data.level]}20`, color: lc[data.level] }}>{data.level}</Badge>
+        <svg width="44" height="44" viewBox="0 0 44 44" style={{ margin: '4px auto 0' }}>
+          <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+          <circle cx="22" cy="22" r="18" fill="none" stroke={config.color} strokeWidth="3"
+            strokeDasharray={`${113 * (data.progress / 100)} 113`}
+            style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dasharray 0.8s ease' }} />
+          <text x="22" y="22" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 11, fontWeight: 700, fill: 'var(--text-primary)' }}>{data.progress}%</text>
+        </svg>
+      </div>
+    );
+  }
+
+  if (view === 'compact') {
+    return (
+      <div className="sp-card-hover" style={{ ...S.compactRow, borderLeftColor: config.color }} onClick={onToggle}>
+        <div style={{ ...S.iconCircleSm, background: `${config.color}15`, color: config.color }}><Icon size={18} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={S.cardName}>{data.subject}</div>
+          <div style={S.cardDescSm}>{data.count} scans · {data.progress}% · {ago(data.lastStudied)}</div>
+        </div>
+        <Badge style={{ background: `${lc[data.level]}20`, color: lc[data.level], fontSize: 10, flexShrink: 0 }}>{data.level}</Badge>
+      </div>
+    );
+  }
+
+  // List view — full detail
+  return (
+    <div className="sp-card-hover" style={{ ...S.listCard, borderLeftColor: config.color, background: config.gradient }}>
+      <div style={S.listCardHead} onClick={onToggle}>
+        <div style={{ display: 'flex', gap: 14, flex: 1, alignItems: 'center' }}>
+          <div style={{ ...S.iconCircle, color: config.color, background: 'rgba(255,255,255,0.05)' }}><Icon size={26} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h3 style={S.listTitle}>{data.subject}</h3>
+              <Badge style={{ background: `${lc[data.level]}20`, color: lc[data.level] }}>{data.level}</Badge>
             </div>
-            <p style={styles.cardMeta}>
-              {subject.count} scan{subject.count !== 1 ? 's' : ''} • Last studied {formatDate(subject.lastStudied)}
-            </p>
+            <p style={S.cardDescSm}>{data.count} scan{data.count !== 1 ? 's' : ''} · Last {ago(data.lastStudied)}</p>
           </div>
         </div>
-        <div style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }}>
+        <div style={{ color: 'var(--text-muted)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>
           <ChevronRight size={18} />
         </div>
       </div>
 
       {/* Progress bar */}
-      <div style={styles.progressContainer}>
-        <div style={styles.progressLabel}>
-          <span style={styles.progressText}>Quiz Score</span>
-          <span style={styles.progressValue}>{subject.progress}%</span>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Quiz Score</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{data.progress}%</span>
         </div>
-        <div style={{ ...styles.progressBar, background: 'rgba(0, 0, 0, 0.1)' }}>
-          <div
-            style={{
-              ...styles.progressFill,
-              width: `${subject.progress}%`,
-              background: `linear-gradient(90deg, ${config.color}, ${config.color}88)`,
-            }}
-          />
+        <div style={{ height: 6, borderRadius: 3, background: 'rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${data.progress}%`, background: `linear-gradient(90deg, ${config.color}, ${config.color}88)`, transition: 'width 0.8s ease' }} />
         </div>
       </div>
 
-      {/* Expanded content */}
-      {isExpanded && (
-        <div style={styles.expandedContent} className="fade-in">
-          <div style={styles.sessionsList} className="stagger-children">
-            {subject.sessions.map((session, idx) => (
-              <div key={session.id} style={styles.sessionItem}>
-                <div style={{ ...styles.sessionNumber, background: `${config.color}20`, color: config.color }}>{idx + 1}</div>
-                <div style={styles.sessionDetails}>
-                  <div style={styles.sessionDate}>
-                    {new Date(session.timestamp).toLocaleDateString('en-US', {
-                      weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                    })}
-                  </div>
-                  {session.quiz && (
-                    <div style={styles.sessionScore}>
-                      {(() => {
-                        const correct = session.quiz.questions?.filter(q => q.userAnswer === q.correct).length || 0;
-                        const total = session.quiz.questions?.length || 0;
-                        const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-                        return `Quiz: ${pct}% (${correct}/${total})`;
-                      })()}
-                    </div>
-                  )}
+      {/* Expanded sessions */}
+      {expanded && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {data.sessions.map((s, i) => (
+            <div key={s.id} style={{ display: 'flex', gap: 10, padding: 10, background: 'rgba(0,0,0,0.12)', borderRadius: 10, alignItems: 'center' }}>
+              <div style={{ ...S.sessionNum, background: `${config.color}20`, color: config.color }}>{i + 1}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  {new Date(s.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </div>
+                {s.quiz && (() => {
+                  const c = s.quiz.questions?.filter(q => q.userAnswer === q.correct).length || 0;
+                  const t = s.quiz.questions?.length || 0;
+                  return <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Quiz: {t > 0 ? Math.round((c / t) * 100) : 0}% ({c}/{t})</div>;
+                })()}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
-function normalizeSubject(subject) {
-  if (!subject) return 'Other';
-  const lower = subject.toLowerCase();
-  if (lower.includes('math')) return 'Math';
-  if (lower.includes('science')) return 'Science';
-  if (lower.includes('history')) return 'History';
-  if (lower.includes('geography')) return 'Geography';
-  if (lower.includes('literature') || lower.includes('english')) return 'Literature';
-  if (lower.includes('biology')) return 'Biology';
-  if (lower.includes('chemistry')) return 'Chemistry';
-  if (lower.includes('physics')) return 'Physics';
-  if (lower.includes('computer')) return 'Computer Science';
-  if (lower.includes('language')) return 'Language';
-  return 'Other';
+function MiniStat({ icon: Icon, label, value, color }) {
+  return (
+    <div style={S.statBox}>
+      <Icon size={16} color={color} />
+      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5 }}>{value}</div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>{label}</div>
+    </div>
+  );
 }
 
-const styles = {
-  container: {
-    padding: '24px 24px 100px',
-    maxWidth: 'var(--layout-max-width, 1200px)',
-    margin: '0 auto',
-  },
-  header: { marginBottom: 20, paddingTop: 8 },
-  title: { fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: 'var(--text-secondary)' },
+// ═══════════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════════
+const S = {
+  page: { padding: '16px 20px 100px', maxWidth: 1200, margin: '0 auto', width: '100%' },
 
-  // Stats row
-  statsRow: {
-    marginBottom: 16,
+  // Tabs
+  tabs: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginBottom: 10 },
+  tab: {
+    padding: '7px 16px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.2s',
   },
-  statCard: {
-    background: 'rgba(30,41,59,0.5)',
-    backdropFilter: 'blur(16px) saturate(180%)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
-    borderRadius: 'var(--radius)',
-    padding: '14px 8px',
-    textAlign: 'center',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statValue: { fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' },
-  statLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 },
+  tabActive: { background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' },
 
-  // Top subject banner
-  topSubjectBanner: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 14px',
-    background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.03))',
-    border: '1px solid rgba(245,158,11,0.2)',
-    borderRadius: 'var(--radius)',
-    marginBottom: 16,
+  // Toolbar
+  toolbar: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 },
+  searchWrap: {
+    flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px',
+    borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
   },
-  topSubjectText: { fontSize: 13, color: 'var(--text-secondary)' },
+  searchInput: { flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit' },
+  clearBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' },
+  viewToggle: { display: 'flex', gap: 2, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 },
+  vBtn: { padding: 7, border: 'none', borderRadius: 8, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', transition: 'all 0.15s' },
+  vBtnActive: { background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' },
 
-  // View toggle
-  viewToggle: {
-    display: 'flex',
-    gap: 4,
-    marginBottom: 16,
-    background: 'var(--bg-card)',
-    borderRadius: 'var(--radius)',
-    padding: 3,
-    border: '1px solid var(--border)',
-    width: 'fit-content',
-  },
-  viewBtn: {
-    padding: '6px 16px',
-    fontSize: 12,
-    fontWeight: 600,
-    border: 'none',
-    borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer',
-    background: 'transparent',
-    color: 'var(--text-muted)',
-    transition: 'all 0.2s',
-  },
-  viewBtnActive: {
-    background: 'var(--primary)',
-    color: 'white',
-  },
+  // Section header
+  sectionHead: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 },
+  sectionTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, flex: 1 },
+  sectionCount: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, background: 'rgba(255,255,255,0.06)', padding: '2px 10px', borderRadius: 10 },
 
-  // Grid view
-  cardsGridView: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: 12,
-    marginBottom: 24,
-  },
+  // ── GRID card ──
   gridCard: {
-    background: 'rgba(30,41,59,0.5)',
-    backdropFilter: 'blur(16px) saturate(180%)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
-    borderRadius: 'var(--radius)',
-    padding: 16,
-    textAlign: 'center',
-    cursor: 'pointer',
-    transition: 'all 0.25s',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 6,
+    padding: 18, borderRadius: 14, textAlign: 'center', cursor: 'pointer',
+    background: 'rgba(30,41,59,0.5)', border: '1.5px solid rgba(255,255,255,0.08)',
+    backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+    transition: 'all 0.2s ease',
   },
-  gridCardIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridCardTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
-  gridCardMeta: { fontSize: 11, color: 'var(--text-muted)' },
+  gridName: { fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
+  gridTip: { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 },
+  gridDesc: { fontSize: 11, color: 'var(--text-muted)', opacity: 0.6, lineHeight: 1.3 },
 
-  // Level badge
-  levelBadge: {
-    fontSize: 10,
-    fontWeight: 700,
-    padding: '2px 8px',
-    borderRadius: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  // ── COMPACT card ──
+  compactRow: {
+    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12,
+    background: 'rgba(30,41,59,0.5)', border: '1px solid rgba(255,255,255,0.08)',
+    borderLeft: '4px solid', cursor: 'pointer', transition: 'all 0.2s ease',
   },
 
-  // List view
-  cardsListView: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    marginBottom: 24,
-  },
-  card: {
-    padding: 16,
-    borderRadius: 'var(--radius)',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
-    transition: 'all 0.25s',
-  },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  cardHeaderLeft: { display: 'flex', gap: 12, flex: 1 },
-  cardIcon: {
-    width: 48, height: 48,
-    borderRadius: 'var(--radius-sm)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(255, 255, 255, 0.05)',
-    flexShrink: 0,
-  },
-  cardInfo: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 },
-  cardMeta: { fontSize: 12, color: 'var(--text-muted)' },
-  expandIcon: { color: 'var(--text-muted)' },
-  progressContainer: { marginBottom: 0 },
-  progressLabel: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  progressText: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 },
-  progressValue: { fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' },
-  progressBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', transition: 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' },
-  expandedContent: { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.1)' },
-  sessionsList: { display: 'flex', flexDirection: 'column', gap: 8 },
-  sessionItem: { display: 'flex', gap: 10, padding: 10, background: 'rgba(0, 0, 0, 0.2)', borderRadius: 'var(--radius-sm)', alignItems: 'flex-start' },
-  sessionNumber: {
-    fontSize: 12, fontWeight: 700,
-    width: 24, height: 24, borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  sessionDetails: { flex: 1, fontSize: 12 },
-  sessionDate: { color: 'var(--text-secondary)', marginBottom: 3 },
-  sessionScore: { color: 'var(--text-muted)', fontSize: 11 },
-
-  // Section
-  section: { marginTop: 24, marginBottom: 16 },
-  sectionHeader: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' },
-
-  // Explore grid
-  exploreGrid: {
-    /* responsive-grid-2 class handles the grid */
-  },
-  exploreCard: {
-    background: 'rgba(30,41,59,0.5)',
-    backdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-    borderRadius: 'var(--radius)',
-    padding: 16,
-    textAlign: 'center',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 6,
-  },
-  exploreIcon: {
-    width: 48, height: 48, borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  exploreName: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
-  exploreTip: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 },
-
-  // Explore chips (when some subjects already studied)
-  exploreRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  exploreChip: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 14px',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 20,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
+  // ── LIST row (explore) ──
+  listRow: {
+    display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12,
+    background: 'rgba(30,41,59,0.5)', border: '1px solid rgba(255,255,255,0.08)',
+    cursor: 'pointer', transition: 'all 0.2s ease',
   },
 
-  // Empty state
-  emptyState: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '48px 20px 32px',
-    textAlign: 'center',
+  // ── LIST card (studied, expandable) ──
+  listCard: {
+    padding: 18, borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', borderLeft: '4px solid',
+    cursor: 'pointer', transition: 'all 0.2s ease', background: 'rgba(30,41,59,0.5)',
   },
-  emptyIconWrap: {
-    width: 80, height: 80, borderRadius: '50%',
-    background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05))',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
+  listCardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  listTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 },
+
+  // ── Shared ──
+  iconCircleLg: { width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconCircle: { width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconCircleSm: { width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardName: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
+  cardDesc: { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 },
+  cardDescSm: { fontSize: 12, color: 'var(--text-muted)' },
+  sessionNum: { fontSize: 11, fontWeight: 700, width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+
+  // Stats
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 },
+  statBox: {
+    padding: '14px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+    borderRadius: 12, background: 'rgba(30,41,59,0.5)', border: '1px solid rgba(255,255,255,0.08)',
   },
-  emptyTitle: { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 280 },
-  navPadding: { height: 20 },
+
+  // Top banner
+  topBanner: {
+    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 16,
+    background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.03))',
+    border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12,
+  },
+  topText: { fontSize: 13, color: 'var(--text-secondary)' },
 };
