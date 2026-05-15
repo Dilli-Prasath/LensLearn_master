@@ -101,24 +101,12 @@ class GeminiService {
       }
     }
 
-    // If already verified, return cached status (avoid wasting tokens)
-    if (this.isConnected && this.model) {
-      return {
-        connected: true,
-        model: this.modelName,
-        models: this.availableModels,
-        provider: 'google-ai',
-      };
-    }
-
-    try {
-      // Try to use the model — simplest connectivity check
-      const testModel = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await testModel.generateContent('Hi');
-
-      // Find best available model
-      this.modelName = 'gemini-2.0-flash';
-      this.model = testModel;
+    // If we have an API key and SDK initialized, trust it's connected.
+    // No need to burn tokens/rate-limit with a test call every poll cycle.
+    // Real errors will surface when the user actually uses a feature.
+    if (this.genAI) {
+      this.modelName = this.modelName || 'gemini-2.0-flash';
+      this.model = this.model || this.genAI.getGenerativeModel({ model: this.modelName });
       this.isConnected = true;
       this.availableModels = ['gemini-2.0-flash'];
 
@@ -128,10 +116,10 @@ class GeminiService {
         models: this.availableModels,
         provider: 'google-ai',
       };
-    } catch (err) {
-      this.isConnected = false;
-      return { connected: false, error: err.message, provider: 'google-ai' };
     }
+
+    this.isConnected = false;
+    return { connected: false, error: 'Google AI not initialized', provider: 'google-ai' };
   }
 
   setModel(modelId) {

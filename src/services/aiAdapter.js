@@ -35,16 +35,20 @@ class AIAdapter {
   }
 
   async _detectBackend(preferredModel) {
-    // 1. Try Ollama (local) first — always preferred
+    // 1. Try Ollama (local) first — with a fast 3s timeout so cloud fallback isn't delayed
     try {
-      const ollamaStatus = await ollamaService.checkConnection(preferredModel);
+      const ollamaPromise = ollamaService.checkConnection(preferredModel);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 3000)
+      );
+      const ollamaStatus = await Promise.race([ollamaPromise, timeoutPromise]);
       if (ollamaStatus.connected) {
         this.activeService = ollamaService;
         this.provider = 'ollama';
         this.isReady = true;
         return { ...ollamaStatus, provider: 'ollama' };
       }
-    } catch { /* Ollama unavailable, try cloud */ }
+    } catch { /* Ollama unavailable or timed out, try cloud */ }
 
     // 2. Try Google AI (cloud) fallback
     const apiKey = import.meta.env.VITE_GOOGLE_AI_KEY;
