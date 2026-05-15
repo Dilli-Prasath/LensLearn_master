@@ -94,44 +94,50 @@ function CompactSelector({ models, activeModel, preferredModel, onSelect, connec
   );
 }
 
-// ─── Full Variant: Card list for Settings page ─────────────────
-function FullSelector({ models, activeModel, preferredModel, onSelect, connected }) {
-  const { available, unavailable } = useMemo(() => buildModelList(models), [models]);
+// ─── Accordion Section ────────────────────────────────────────
+function FamilyAccordion({ familyKey, familyMeta, models, activeModel, onSelect, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const availCount = models.filter(m => m.available).length;
+  const hasActive = models.some(m => m.id === activeModel);
 
   return (
-    <div style={fullStyles.container}>
-      {/* Connection Status */}
-      <div style={fullStyles.statusRow}>
-        <span style={fullStyles.statusLabel}>Status</span>
-        <span style={{
-          ...fullStyles.statusBadge,
-          background: connected ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-          color: connected ? '#34d399' : '#f87171',
-        }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
-            background: connected ? '#10b981' : '#ef4444',
-            marginRight: 6,
-          }} />
-          {connected ? 'Connected' : 'Disconnected'}
-        </span>
-      </div>
-
-      {connected && activeModel && (
-        <div style={fullStyles.statusRow}>
-          <span style={fullStyles.statusLabel}>Active Model</span>
-          <span style={fullStyles.statusValue}>{formatModelName(activeModel)}</span>
+    <div style={fullStyles.accordion}>
+      <button
+        style={fullStyles.accordionHeader}
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ ...fullStyles.familyDot, background: familyMeta.color }} />
+          <span style={fullStyles.accordionTitle}>{familyMeta.label}</span>
+          {familyMeta.badge && (
+            <span style={{ ...fullStyles.recBadge, background: `${familyMeta.color}22`, color: familyMeta.color }}>
+              {familyMeta.badge}
+            </span>
+          )}
+          {hasActive && (
+            <span style={fullStyles.activeBadge}>Active</span>
+          )}
         </div>
-      )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={fullStyles.accordionCount}>
+            {availCount > 0 ? `${availCount} available` : 'Not installed'}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{
+            transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}>
+            <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="var(--text-tertiary, #64748b)"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </button>
 
-      {/* Available Models */}
-      {available.length > 0 && (
-        <div style={fullStyles.group}>
-          <h4 style={fullStyles.groupTitle}>Available Models ({available.length})</h4>
-          <div style={fullStyles.modelGrid}>
-            {available.map((m) => {
-              const isActive = m.id === activeModel;
-              const fam = MODEL_FAMILIES[m.family] || MODEL_FAMILIES.custom;
+      {open && (
+        <div style={fullStyles.accordionBody}>
+          {models.map((m) => {
+            const isActive = m.id === activeModel;
+            const fam = MODEL_FAMILIES[m.family] || MODEL_FAMILIES.custom;
+            if (m.available) {
               return (
                 <button
                   key={m.id}
@@ -166,33 +172,109 @@ function FullSelector({ models, activeModel, preferredModel, onSelect, connected
                   </div>
                 </button>
               );
-            })}
-          </div>
+            }
+            return (
+              <div key={m.id} style={fullStyles.modelCardDisabled}>
+                <div style={fullStyles.modelHeader}>
+                  <div style={fullStyles.modelNameRow}>
+                    <span style={{ ...fullStyles.familyDot, background: fam.color, opacity: 0.5 }} />
+                    <span style={{ ...fullStyles.modelName, opacity: 0.5 }}>{m.name}</span>
+                  </div>
+                  <span style={fullStyles.paramsBadge}>{m.params}</span>
+                </div>
+                <p style={{ ...fullStyles.modelDesc, opacity: 0.5 }}>{m.description}</p>
+                <code style={fullStyles.pullCmd}>ollama pull {m.id}</code>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Full Variant: Card list for Settings page ─────────────────
+function FullSelector({ models, activeModel, preferredModel, onSelect, connected }) {
+  const { available, unavailable } = useMemo(() => buildModelList(models), [models]);
+
+  // Group all models by family for accordion display
+  const familyGroups = useMemo(() => {
+    const allModels = [
+      ...available.map(m => ({ ...m, available: true })),
+      ...unavailable.map(m => ({ ...m, available: false })),
+    ];
+    const groups = {};
+    for (const m of allModels) {
+      const fam = m.family || 'custom';
+      if (!groups[fam]) groups[fam] = [];
+      // Avoid duplicates (same id)
+      if (!groups[fam].some(x => x.id === m.id)) {
+        groups[fam].push(m);
+      }
+    }
+    // Sort models within each group: available first, then by priority
+    for (const fam of Object.keys(groups)) {
+      groups[fam].sort((a, b) => {
+        if (a.available !== b.available) return a.available ? -1 : 1;
+        return (a.priority || 50) - (b.priority || 50);
+      });
+    }
+    // Define family display order: gemma4 first, then gemma3, gemini, then rest alphabetically
+    const order = ['gemma4', 'gemma3', 'gemini', 'llama', 'mistral', 'phi', 'qwen', 'custom'];
+    const sorted = order.filter(f => groups[f]?.length > 0);
+    // Add any families not in the predefined order
+    for (const f of Object.keys(groups)) {
+      if (!sorted.includes(f)) sorted.push(f);
+    }
+    return sorted.map(f => ({ key: f, models: groups[f] }));
+  }, [available, unavailable]);
+
+  return (
+    <div style={fullStyles.container}>
+      {/* Connection Status */}
+      <div style={fullStyles.statusRow}>
+        <span style={fullStyles.statusLabel}>Status</span>
+        <span style={{
+          ...fullStyles.statusBadge,
+          background: connected ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+          color: connected ? '#34d399' : '#f87171',
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+            background: connected ? '#10b981' : '#ef4444',
+            marginRight: 6,
+          }} />
+          {connected ? 'Connected' : 'Disconnected'}
+        </span>
+      </div>
+
+      {connected && activeModel && (
+        <div style={fullStyles.statusRow}>
+          <span style={fullStyles.statusLabel}>Active Model</span>
+          <span style={fullStyles.statusValue}>{formatModelName(activeModel)}</span>
         </div>
       )}
 
-      {/* Unavailable Models — dimmed, with pull command */}
-      {unavailable.length > 0 && (
-        <div style={fullStyles.group}>
-          <h4 style={fullStyles.groupTitle}>Not Installed</h4>
-          <div style={fullStyles.modelGrid}>
-            {unavailable.map((m) => {
-              const fam = MODEL_FAMILIES[m.family] || MODEL_FAMILIES.custom;
-              return (
-                <div key={m.id} style={fullStyles.modelCardDisabled}>
-                  <div style={fullStyles.modelHeader}>
-                    <div style={fullStyles.modelNameRow}>
-                      <span style={{ ...fullStyles.familyDot, background: fam.color, opacity: 0.5 }} />
-                      <span style={{ ...fullStyles.modelName, opacity: 0.5 }}>{m.name}</span>
-                    </div>
-                    <span style={fullStyles.paramsBadge}>{m.params}</span>
-                  </div>
-                  <p style={{ ...fullStyles.modelDesc, opacity: 0.5 }}>{m.description}</p>
-                  <code style={fullStyles.pullCmd}>ollama pull {m.id}</code>
-                </div>
-              );
-            })}
-          </div>
+      {/* Model Families — Accordion groups */}
+      {familyGroups.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {familyGroups.map((group) => {
+            const familyMeta = MODEL_FAMILIES[group.key] || MODEL_FAMILIES.custom;
+            // Auto-expand Gemma 4, or the family containing the active model
+            const hasActive = group.models.some(m => m.id === activeModel);
+            const defaultOpen = group.key === 'gemma4' || hasActive;
+            return (
+              <FamilyAccordion
+                key={group.key}
+                familyKey={group.key}
+                familyMeta={familyMeta}
+                models={group.models}
+                activeModel={activeModel}
+                onSelect={onSelect}
+                defaultOpen={defaultOpen}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -246,6 +328,7 @@ const compactStyles = {
   },
   dropdown: {
     position: 'absolute', top: 'calc(100% + 6px)', left: 0, minWidth: 280,
+    maxHeight: '60vh', overflowY: 'auto',
     background: 'var(--bg-secondary, #1e293b)',
     border: '1px solid var(--border-primary, rgba(255,255,255,0.1))',
     borderRadius: 12, padding: 4, zIndex: 100,
@@ -275,6 +358,32 @@ const compactStyles = {
 // ─── Full Styles ───────────────────────────────────────────────
 const fullStyles = {
   container: { display: 'flex', flexDirection: 'column', gap: 16 },
+  accordion: {
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'rgba(255,255,255,0.02)',
+    overflow: 'hidden',
+  },
+  accordionHeader: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', padding: '12px 14px',
+    background: 'rgba(255,255,255,0.04)',
+    border: 'none', cursor: 'pointer',
+    fontFamily: 'inherit', color: 'var(--text-primary, #f1f5f9)',
+    transition: 'background 150ms ease',
+  },
+  accordionTitle: {
+    fontSize: '0.875rem', fontWeight: 700,
+    color: 'var(--text-primary, #f1f5f9)',
+  },
+  accordionCount: {
+    fontSize: '0.6875rem', fontWeight: 600,
+    color: 'var(--text-tertiary, #64748b)',
+  },
+  accordionBody: {
+    display: 'flex', flexDirection: 'column', gap: 6,
+    padding: '8px 10px',
+  },
   statusRow: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 14px', borderRadius: 10,

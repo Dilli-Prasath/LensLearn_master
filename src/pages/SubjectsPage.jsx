@@ -90,7 +90,18 @@ export default function SubjectsPage() {
   });
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
+  const [favorites, setFavorites] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ll-fav-subjects') || '[]'); } catch { return []; }
+  });
   const sessions = useHistoryStore((s) => s.sessions);
+
+  const toggleFavorite = (subjectId) => {
+    setFavorites(prev => {
+      const next = prev.includes(subjectId) ? prev.filter(id => id !== subjectId) : [...prev, subjectId];
+      try { localStorage.setItem('ll-fav-subjects', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => { ensureCSS(); }, []);
   useEffect(() => {
@@ -187,7 +198,7 @@ export default function SubjectsPage() {
 
           <div className={containerClass}>
             {filtered.map(sub => (
-              <SubjectExploreCard key={sub.id} subject={sub} view={viewMode} onClick={() => onScan(sub.shortName)} />
+              <SubjectExploreCard key={sub.id} subject={sub} view={viewMode} onClick={() => onScan(sub.shortName)} isFav={favorites.includes(sub.id)} onFav={(e) => { e.stopPropagation(); toggleFavorite(sub.id); }} />
             ))}
           </div>
         </>
@@ -232,7 +243,7 @@ export default function SubjectsPage() {
                 {filtered
                   .filter(s => !studied.find(c => c.subject.toLowerCase() === s.shortName.toLowerCase()))
                   .map(sub => (
-                    <SubjectExploreCard key={sub.id} subject={sub} view={viewMode} onClick={() => onScan(sub.shortName)} />
+                    <SubjectExploreCard key={sub.id} subject={sub} view={viewMode} onClick={() => onScan(sub.shortName)} isFav={favorites.includes(sub.id)} onFav={(e) => { e.stopPropagation(); toggleFavorite(sub.id); }} />
                   ))}
               </div>
             </>
@@ -249,7 +260,24 @@ export default function SubjectsPage() {
 // COMPONENTS
 // ═══════════════════════════════════════════════════════════
 
-function SubjectExploreCard({ subject, view, onClick }) {
+function FavBtn({ isFav, onFav, size = 16 }) {
+  return (
+    <button
+      onClick={onFav}
+      style={{
+        background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex',
+        color: isFav ? '#ef4444' : 'var(--text-muted)',
+        transition: 'color 0.2s, transform 0.2s',
+        transform: isFav ? 'scale(1.15)' : 'scale(1)',
+      }}
+      title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+    >
+      <Heart size={size} fill={isFav ? '#ef4444' : 'none'} />
+    </button>
+  );
+}
+
+function SubjectExploreCard({ subject, view, onClick, isFav, onFav }) {
   const Icon = ICON_MAP[subject.iconName] || HelpCircle;
 
   if (view === 'list') {
@@ -262,6 +290,7 @@ function SubjectExploreCard({ subject, view, onClick }) {
           <div style={S.cardName}>{subject.shortName}</div>
           <div style={S.cardDesc}>{subject.tip}</div>
         </div>
+        <FavBtn isFav={isFav} onFav={onFav} />
         <Badge style={{ background: `${subject.color}12`, color: subject.color, fontSize: 10, flexShrink: 0 }}>{subject.category}</Badge>
         <ChevronRight size={16} color="var(--text-muted)" />
       </div>
@@ -278,6 +307,7 @@ function SubjectExploreCard({ subject, view, onClick }) {
           <div style={S.cardName}>{subject.shortName}</div>
           <div style={S.cardDescSm}>{subject.description}</div>
         </div>
+        <FavBtn isFav={isFav} onFav={onFav} size={14} />
         <Badge style={{ background: `${subject.color}12`, color: subject.color, fontSize: 9, flexShrink: 0 }}>{subject.category}</Badge>
       </div>
     );
@@ -285,7 +315,10 @@ function SubjectExploreCard({ subject, view, onClick }) {
 
   // Grid view
   return (
-    <div className="sp-card-hover" style={S.gridCard} onClick={onClick} role="button" tabIndex={0}>
+    <div className="sp-card-hover" style={{ ...S.gridCard, position: 'relative' }} onClick={onClick} role="button" tabIndex={0}>
+      <div style={{ position: 'absolute', top: 8, right: 8 }}>
+        <FavBtn isFav={isFav} onFav={onFav} />
+      </div>
       <div style={{ ...S.iconCircleLg, background: `${subject.color}15`, color: subject.color }}>
         <Icon size={28} />
       </div>
