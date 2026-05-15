@@ -267,7 +267,10 @@ export const useScanStore = create((set, get) => ({
   // ═══════════════════════════════════
   //  Reset
   // ═══════════════════════════════════
-  resetScan: () => set({
+  resetScan: () => {
+    // Abort any in-flight AI request before resetting state
+    aiService.abort();
+    set({
     capturedImage: null,
     imageBase64: null,
     documentContent: null,
@@ -285,5 +288,5 @@ export const useScanStore = create((set, get) => ({
     studyPlan: null,
     studyPlanLoading: false,
     viewingSession: null,
-  }),
+  });},
 }));

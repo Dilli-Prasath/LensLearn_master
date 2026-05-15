@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS = {
   highContrast: false,
   reduceAnimations: false,
 
+  // Languages (codes of enabled non-core languages)
+  enabledLanguages: [],
+
   // AI model
   preferredModel: 'gemma4:e4b',
 

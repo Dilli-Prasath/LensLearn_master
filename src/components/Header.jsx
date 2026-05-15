@@ -1,7 +1,7 @@
-import { BookOpen, RefreshCw } from 'lucide-react';
+import { BookOpen, RefreshCw, Loader } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useConnectionStore } from '../store';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useConnectionStore, useScanStore } from '../store';
 import IconButton from '../lib/components/IconButton';
 import Badge from '../lib/components/Badge';
 
@@ -30,8 +30,13 @@ export default function Header() {
   const connectionStatus = useConnectionStore((s) => s.status);
   const provider = useConnectionStore((s) => s.provider);
   const checkConnection = useConnectionStore((s) => s.check);
+  const isProcessing = useScanStore((s) => s.isProcessing);
+  const isStreaming = useScanStore((s) => s.isStreaming);
   const navigate = useNavigate();
+  const location = useLocation();
   const [isReconnecting, setIsReconnecting] = useState(false);
+  // Show processing banner on non-explanation pages when AI is working
+  const showProcessingBanner = (isProcessing || isStreaming) && location.pathname !== '/explain';
 
   const handleReconnect = async () => {
     setIsReconnecting(true);
@@ -82,6 +87,22 @@ export default function Header() {
           )}
         </div>
       </div>
+
+      {/* Global processing banner — shows on non-explanation pages */}
+      {showProcessingBanner && (
+        <div
+          style={styles.processingBanner}
+          onClick={() => navigate('/explain')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="icon-spin" style={{ display: 'flex' }}>
+            <Loader size={14} />
+          </div>
+          <span>AI is generating your explanation...</span>
+          <span style={styles.processingTap}>Tap to view</span>
+        </div>
+      )}
     </header>
   );
 }
@@ -146,5 +167,19 @@ const styles = {
   status: {
     display: 'flex',
     alignItems: 'center',
+  },
+  processingBanner: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    padding: '8px 16px',
+    background: 'linear-gradient(90deg, rgba(99,102,241,0.15), rgba(168,85,247,0.1))',
+    borderBottom: '1px solid rgba(99,102,241,0.2)',
+    fontSize: 13, fontWeight: 600,
+    color: 'var(--primary-light)',
+    cursor: 'pointer',
+    transition: 'background 0.2s',
+  },
+  processingTap: {
+    fontSize: 11, fontWeight: 700, opacity: 0.7,
+    background: 'rgba(99,102,241,0.2)', padding: '2px 8px', borderRadius: 10,
   },
 };

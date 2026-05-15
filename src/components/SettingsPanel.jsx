@@ -2,18 +2,13 @@ import { useState } from 'react';
 import {
   Globe, GraduationCap, Cpu, Trash2, Info, Eye, Palette,
   Type, Circle, Square, Sparkles, Target, Brain, ChevronRight,
-  BookOpen, Zap,
+  BookOpen, Zap, Plus, Minus, Languages,
 } from 'lucide-react';
 import historyService from '../services/historyService';
 import { THEMES, ACCENT_COLORS, FONT_OPTIONS, BORDER_RADIUS_OPTIONS, LAYOUT_WIDTH_OPTIONS } from '../utils/themes';
 import ModelSelector from '../lib/components/ModelSelector';
 import { useConnectionStore } from '../store/connectionStore';
-
-const LANGUAGES = [
-  'English', 'Spanish', 'French', 'German', 'Portuguese',
-  'Hindi', 'Tamil', 'Bengali', 'Arabic', 'Chinese',
-  'Japanese', 'Korean', 'Indonesian', 'Swahili', 'Russian'
-];
+import { getLanguagesByTier, LANGUAGE_TIERS } from '../config/languages';
 
 const GRADE_LEVELS = [
   'elementary school (ages 6-10)',
@@ -293,20 +288,18 @@ export default function SettingsPanel({ settings, onChange, connectionStatus }) 
           {/* Language */}
           <div style={styles.subsection}>
             <label style={styles.label}>Explanation Language</label>
-            <div style={styles.chips}>
-              {LANGUAGES.map(lang => (
-                <button
-                  key={lang}
-                  style={{
-                    ...styles.chip,
-                    ...(settings.language === lang ? styles.chipActive : {})
-                  }}
-                  onClick={() => update('language', lang)}
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
+            <LanguagePicker
+              currentLanguage={settings.language}
+              enabledLanguages={settings.enabledLanguages || []}
+              onSelect={(lang) => update('language', lang)}
+              onToggle={(code, enabled) => {
+                const current = settings.enabledLanguages || [];
+                const next = enabled
+                  ? [...current, code]
+                  : current.filter(c => c !== code);
+                update('enabledLanguages', next);
+              }}
+            />
           </div>
 
           {/* Grade Level */}
@@ -436,6 +429,106 @@ function ToggleRow({ label, description, value, onChange }) {
           transform: value ? 'translateX(20px)' : 'translateX(0)',
         }} />
       </button>
+    </div>
+  );
+}
+
+/**
+ * LanguagePicker — Tier-based language selector for Settings
+ * Shows core languages always, with expandable sections for Indian & World languages.
+ * Users can enable/disable individual languages; disabled ones don't appear in quick-select.
+ */
+function LanguagePicker({ currentLanguage, enabledLanguages, onSelect, onToggle }) {
+  const [expanded, setExpanded] = useState(null);
+  const langGroups = getLanguagesByTier();
+  const tierOrder = ['core', 'indian', 'extended'];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {tierOrder.map(tier => {
+        const langs = langGroups[tier] || [];
+        if (!langs.length) return null;
+        const meta = LANGUAGE_TIERS[tier];
+        const isOpen = tier === 'core' || expanded === tier;
+
+        return (
+          <div key={tier}>
+            {tier !== 'core' && (
+              <button
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  width: '100%', padding: '8px 4px', background: 'none', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}
+                onClick={() => setExpanded(expanded === tier ? null : tier)}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color }} />
+                  {meta.label} ({langs.length})
+                </span>
+                <ChevronRight size={14} style={{
+                  transition: 'transform 0.2s',
+                  transform: isOpen ? 'rotate(90deg)' : 'rotate(0)',
+                }} />
+              </button>
+            )}
+            {isOpen && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: tier === 'core' ? 0 : '4px 0' }}>
+                {langs.map(lang => {
+                  const isActive = currentLanguage === lang.name;
+                  const isEnabled = lang.tier === 'core' || lang.enabled || enabledLanguages.includes(lang.code);
+                  return (
+                    <button
+                      key={lang.code}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '6px 12px', borderRadius: 20, fontSize: 13,
+                        fontFamily: 'inherit', cursor: 'pointer',
+                        fontWeight: isActive ? 700 : 500,
+                        transition: 'all 0.15s',
+                        border: isActive
+                          ? '1.5px solid var(--primary)'
+                          : '1px solid var(--border)',
+                        background: isActive
+                          ? 'rgba(99,102,241,0.15)'
+                          : !isEnabled ? 'rgba(255,255,255,0.02)' : 'var(--bg-card)',
+                        color: isActive
+                          ? 'var(--primary-light)'
+                          : !isEnabled ? 'var(--text-muted)' : 'var(--text-secondary)',
+                        opacity: isEnabled || isActive ? 1 : 0.5,
+                      }}
+                      onClick={() => {
+                        if (!isEnabled && lang.tier !== 'core') {
+                          // Enable the language and select it
+                          onToggle(lang.code, true);
+                          onSelect(lang.name);
+                        } else {
+                          onSelect(lang.name);
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        // Right-click to toggle enable/disable (non-core only)
+                        if (lang.tier !== 'core') {
+                          e.preventDefault();
+                          onToggle(lang.code, !isEnabled);
+                        }
+                      }}
+                      title={`${lang.native}${lang.tier !== 'core' ? ' (click to select, right-click to toggle)' : ''}`}
+                    >
+                      {lang.name}
+                      {lang.native !== lang.name && (
+                        <span style={{ fontSize: 11, opacity: 0.7 }}>{lang.native}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

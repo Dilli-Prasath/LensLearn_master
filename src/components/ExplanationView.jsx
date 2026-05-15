@@ -19,11 +19,7 @@ import exportService from '../services/exportService';
 import { adaptiveSettings, device } from '../utils/performance';
 
 
-const LANGUAGES = [
-  'English', 'Spanish', 'French', 'German', 'Portuguese',
-  'Hindi', 'Tamil', 'Bengali', 'Arabic', 'Chinese',
-  'Japanese', 'Korean', 'Indonesian', 'Swahili', 'Russian'
-];
+import { getLanguageNames } from '../config/languages';
 
 const SUGGESTED_FOLLOW_UPS = [
   'Give me an example',
@@ -269,7 +265,7 @@ export default function ExplanationView({
   }, [visibleMessages, chatMessages, isStreaming, renderedExplanation]);
 
   // Convert language string to LanguageSelector format
-  const languageOptions = LANGUAGES.map(lang => ({ code: lang, name: lang }));
+  const languageOptions = getLanguageNames().map(lang => ({ code: lang, name: lang }));
 
   return (
     <div style={styles.container} className={adaptiveSettings.enableAnimations ? 'slide-up' : ''}>
@@ -431,7 +427,7 @@ export default function ExplanationView({
       </Card>
 
       {/* Suggested follow-up chips - using button elements with chip-like styling */}
-      {!isStreaming && chatMessages.length > 0 && !followUpError && (
+      {!isStreaming && !isMainExplanationError && explanation && !followUpError && (
         <div style={styles.suggestedChipsContainer} className="slide-up">
           <div style={styles.suggestedChipsLabel}>Suggested follow-ups:</div>
           <div style={styles.suggestedChips} className="stagger-children">
