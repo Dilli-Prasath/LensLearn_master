@@ -51,20 +51,23 @@ class AIAdapter {
       }
     } catch { /* Ollama local unavailable or timed out */ }
 
-    // 2. Try Ollama Cloud — runs REAL Gemma 4 models via ollama.com API
-    const ollamaApiKey = import.meta.env.VITE_OLLAMA_API_KEY;
-    if (ollamaApiKey) {
-      try {
-        ollamaService.switchToCloud(ollamaApiKey);
-        const cloudStatus = await ollamaService.checkConnection(preferredModel);
-        if (cloudStatus.connected) {
-          this.activeService = ollamaService;
-          this.provider = 'ollama-cloud';
-          this.isReady = true;
-          return { ...cloudStatus, provider: 'ollama-cloud' };
-        }
-      } catch { /* Ollama cloud unavailable */ }
-    }
+    // 2. Try Ollama Cloud — runs REAL Gemma 4 models via Vercel proxy
+    //    The proxy at /api/ollama-cloud forwards to ollama.com with the API key
+    //    server-side. We always try it (the proxy returns 500 if no key is set).
+    try {
+      ollamaService.switchToCloud();
+      const cloudPromise = ollamaService.checkConnection(preferredModel);
+      const cloudTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 8000)
+      );
+      const cloudStatus = await Promise.race([cloudPromise, cloudTimeout]);
+      if (cloudStatus.connected) {
+        this.activeService = ollamaService;
+        this.provider = 'ollama-cloud';
+        this.isReady = true;
+        return { ...cloudStatus, provider: 'ollama-cloud' };
+      }
+    } catch { /* Ollama cloud unavailable or timed out */ }
 
     // 3. Try Google AI (Gemini) as last-resort fallback
     const googleKey = import.meta.env.VITE_GOOGLE_AI_KEY;
@@ -83,13 +86,12 @@ class AIAdapter {
 
     // 4. Nothing available — return disconnected
     this.isReady = false;
-    const hasAnyKey = ollamaApiKey || googleKey;
     return {
       connected: false,
       provider: 'none',
-      error: hasAnyKey
+      error: googleKey
         ? 'No AI backend is reachable. Check your API keys and internet connection.'
-        : 'No AI backend configured. Set VITE_OLLAMA_API_KEY or VITE_GOOGLE_AI_KEY.',
+        : 'No AI backend configured. Set OLLAMA_API_KEY or VITE_GOOGLE_AI_KEY in your environment.',
     };
   }
 

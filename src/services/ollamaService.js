@@ -84,14 +84,14 @@ class OllamaService {
 
   /**
    * Switch to Ollama Cloud API — runs real Gemma 4 models remotely.
-   * See: https://docs.ollama.com/cloud
-   * @param {string} apiKey - Ollama API key from ollama.com/settings/keys
+   * Uses a Vercel Edge Function proxy at /api/ollama-cloud to:
+   *   1. Bypass CORS (browser can't call ollama.com directly)
+   *   2. Keep API key server-side (never in browser bundle)
    */
-  switchToCloud(apiKey) {
-    this.ollama = new Ollama({
-      host: 'https://ollama.com',
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+  switchToCloud() {
+    // Point the SDK at our proxy — it forwards to https://ollama.com/api/*
+    const host = window.location.origin + '/api/ollama-cloud';
+    this.ollama = new Ollama({ host });
     this.isCloud = true;
     this.isConnected = false;
     this.availableModels = [];
