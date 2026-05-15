@@ -83,6 +83,33 @@ export const MODEL_REGISTRY = [
     tier: 'medium',
     priority: 4,
   },
+  // ─── Gemma 4 Cloud variants (available via Ollama Cloud) ───
+  {
+    id: 'gemma4:31b',
+    name: 'Gemma 4 31B Dense',
+    family: 'gemma4',
+    params: '31B',
+    description: 'Highest quality Gemma 4. Available on Ollama Cloud.',
+    tags: ['quality', 'dense', 'multimodal', 'cloud'],
+    context: 256_000,
+    multimodal: true,
+    thinking: true,
+    tier: 'high',
+    priority: 0,   // top priority — best Gemma 4 model
+  },
+  {
+    id: 'gemma4:latest',
+    name: 'Gemma 4',
+    family: 'gemma4',
+    params: '~10B',
+    description: 'Default Gemma 4 model. Automatically selects best variant.',
+    tags: ['balanced', 'multimodal', 'cloud'],
+    context: 128_000,
+    multimodal: true,
+    thinking: true,
+    tier: 'medium',
+    priority: 1,
+  },
   // ─── Google AI Cloud Models ───
   {
     id: 'gemini-2.0-flash',
@@ -124,6 +151,19 @@ export const MODEL_REGISTRY = [
     tier: 'medium',
     priority: 11,
   },
+  {
+    id: 'gemma3:27b',
+    name: 'Gemma 3 27B',
+    family: 'gemma3',
+    params: '27B',
+    description: 'Previous generation, large model with strong quality.',
+    tags: ['legacy'],
+    context: 32_000,
+    multimodal: true,
+    thinking: false,
+    tier: 'high',
+    priority: 12,
+  },
 ];
 
 /**
@@ -135,18 +175,20 @@ export function getModelById(id) {
 
   // Build generic entry for unregistered models (e.g., user-pulled custom models)
   const family = detectFamily(id);
+  const isGemma4 = family === 'gemma4';
+  const isGemma3 = family === 'gemma3';
   return {
     id,
     name: formatModelName(id),
     family,
     params: '?',
     description: 'Custom model pulled into Ollama.',
-    tags: ['custom'],
-    context: 0,
-    multimodal: false,
-    thinking: false,
+    tags: isGemma4 ? ['multimodal', 'cloud'] : ['custom'],
+    context: isGemma4 ? 128_000 : 0,
+    multimodal: isGemma4 || isGemma3,
+    thinking: isGemma4,
     tier: 'medium',
-    priority: 99,
+    priority: isGemma4 ? 5 : isGemma3 ? 15 : 50,  // Gemma 4 always ranks high
   };
 }
 
@@ -203,11 +245,10 @@ export function selectBestModel(availableModels, preferredModelId) {
   }
 
   // 3. Sort available by registry priority and return the best
+  //    Uses getModelById which gives Gemma 4 family priority even for unregistered variants
   const scored = availableModels.map(m => {
-    const reg = MODEL_REGISTRY.find(r =>
-      m === r.id || m.startsWith(r.id + ':') || m.startsWith(r.id)
-    );
-    return { model: m, priority: reg ? reg.priority : 50 };
+    const cfg = getModelById(m);
+    return { model: m, priority: cfg.priority };
   });
   scored.sort((a, b) => a.priority - b.priority);
   return scored[0].model;
@@ -239,7 +280,7 @@ export function buildModelList(availableModels = []) {
   for (const m of availableModels) {
     const alreadyListed = available.some(a => a.id === m);
     if (!alreadyListed) {
-      available.push(getModelById(m));
+      available.push({ ...getModelById(m), available: true });
     }
   }
 
