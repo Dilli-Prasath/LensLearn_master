@@ -199,9 +199,12 @@ function FullSelector({ models, activeModel, preferredModel, onSelect, connected
       {/* Help text when disconnected */}
       {!connected && (
         <div style={fullStyles.helpCard}>
-          <p style={fullStyles.helpText}>Start Ollama on your computer to see available models.</p>
+          <p style={fullStyles.helpText}>No AI backend connected. You can either:</p>
+          <p style={{ ...fullStyles.helpText, marginTop: 8, fontWeight: 600 }}>Option 1: Cloud AI (easiest)</p>
+          <p style={{ ...fullStyles.helpText, marginTop: 4 }}>Set a Google AI API key in your environment variables.</p>
+          <p style={{ ...fullStyles.helpText, marginTop: 8, fontWeight: 600 }}>Option 2: Local Ollama</p>
           <code style={fullStyles.pullCmd}>ollama serve</code>
-          <p style={{ ...fullStyles.helpText, marginTop: 8 }}>Then pull a model:</p>
+          <p style={{ ...fullStyles.helpText, marginTop: 4 }}>Then pull a model:</p>
           <code style={fullStyles.pullCmd}>ollama pull gemma4:e4b</code>
         </div>
       )}

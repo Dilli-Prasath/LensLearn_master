@@ -101,11 +101,20 @@ class GeminiService {
       }
     }
 
+    // If already verified, return cached status (avoid wasting tokens)
+    if (this.isConnected && this.model) {
+      return {
+        connected: true,
+        model: this.modelName,
+        models: this.availableModels,
+        provider: 'google-ai',
+      };
+    }
+
     try {
       // Try to use the model — simplest connectivity check
       const testModel = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await testModel.generateContent('Hi');
-      const text = result.response?.text?.() || '';
 
       // Find best available model
       this.modelName = 'gemini-2.0-flash';

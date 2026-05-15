@@ -103,10 +103,31 @@ class AIAdapter {
   }
 
   /**
-   * Re-check connection on current provider, or auto-detect again
+   * Re-check connection on current provider, or auto-detect again.
+   * Once connected, only re-checks the active provider (no re-probing).
    */
   async checkConnection(preferredModel) {
-    return this.init(preferredModel);
+    // If already connected, just verify the current provider is still alive
+    if (this.isReady && this.provider === 'google-ai') {
+      try {
+        const status = await geminiService.checkConnection();
+        return { ...status, provider: 'google-ai' };
+      } catch {
+        this.isReady = false;
+      }
+    }
+    if (this.isReady && this.provider === 'ollama') {
+      try {
+        const status = await ollamaService.checkConnection(preferredModel);
+        if (status.connected) return { ...status, provider: 'ollama' };
+        // Ollama went down — try to fall back to cloud
+        this.isReady = false;
+      } catch {
+        this.isReady = false;
+      }
+    }
+    // Not ready or provider went down — full detection
+    return this._detectBackend(preferredModel);
   }
 
   // ═══════════════════════════════════

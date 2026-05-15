@@ -19,13 +19,14 @@
  */
 
 export const MODEL_FAMILIES = {
-  gemma4: { label: 'Gemma 4', color: '#6366f1', badge: 'Latest' },
-  gemma3: { label: 'Gemma 3', color: '#8b5cf6', badge: null },
-  llama:  { label: 'Llama',   color: '#f59e0b', badge: null },
-  mistral:{ label: 'Mistral', color: '#06b6d4', badge: null },
-  phi:    { label: 'Phi',     color: '#10b981', badge: null },
-  qwen:   { label: 'Qwen',   color: '#ef4444', badge: null },
-  custom: { label: 'Other',   color: '#64748b', badge: null },
+  gemma4:  { label: 'Gemma 4', color: '#6366f1', badge: 'Latest' },
+  gemma3:  { label: 'Gemma 3', color: '#8b5cf6', badge: null },
+  gemini:  { label: 'Gemini',  color: '#4285f4', badge: 'Cloud' },
+  llama:   { label: 'Llama',   color: '#f59e0b', badge: null },
+  mistral: { label: 'Mistral', color: '#06b6d4', badge: null },
+  phi:     { label: 'Phi',     color: '#10b981', badge: null },
+  qwen:    { label: 'Qwen',    color: '#ef4444', badge: null },
+  custom:  { label: 'Other',   color: '#64748b', badge: null },
 };
 
 export const MODEL_REGISTRY = [
@@ -81,6 +82,20 @@ export const MODEL_REGISTRY = [
     thinking: true,
     tier: 'medium',
     priority: 4,
+  },
+  // ─── Google AI Cloud Models ───
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash',
+    family: 'gemini',
+    params: 'Cloud',
+    description: 'Google AI cloud model. Fast, capable, works everywhere.',
+    tags: ['cloud', 'multimodal', 'recommended'],
+    context: 1_000_000,
+    multimodal: true,
+    thinking: false,
+    tier: 'low',
+    priority: 5,
   },
   // ─── Gemma 3 Family (Fallback) ───
   {
@@ -142,6 +157,7 @@ export function detectFamily(modelId) {
   const lower = (modelId || '').toLowerCase();
   if (lower.startsWith('gemma4') || lower.startsWith('gemma-4')) return 'gemma4';
   if (lower.startsWith('gemma3') || lower.startsWith('gemma-3') || lower.startsWith('gemma')) return 'gemma3';
+  if (lower.startsWith('gemini')) return 'gemini';
   if (lower.startsWith('llama')) return 'llama';
   if (lower.startsWith('mistral') || lower.startsWith('mixtral')) return 'mistral';
   if (lower.startsWith('phi')) return 'phi';
