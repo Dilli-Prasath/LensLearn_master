@@ -154,7 +154,7 @@ export default function App() {
       });
     } catch (err) {
       setExplanation(
-        `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running on your computer\n2. Run: \`ollama pull gemma4:e4b\`\n3. Start Ollama: \`OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve\`\n4. Start dev server with: \`NO_PROXY=127.0.0.1,localhost npx vite --host\`\n\n*Error: ${err.message}*`
+        `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running on your computer\n2. Run: \`ollama pull gemma4:e4b\`\n3. Start Ollama: \`OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve\`\n4. Start dev server with: \`NO_PROXY=127.0.0.1,localhost npx vite --host\`\n\n*Error: ${typeof err?.message === 'string' ? err.message : typeof err?.message === 'object' ? (err.message.error || JSON.stringify(err.message)) : String(err)}*`
       );
     }
     setIsStreaming(false);

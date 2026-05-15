@@ -3,15 +3,35 @@
  *
  * Auto-detects the best available AI backend:
  *   1. Try Ollama (local) — fastest, private, offline
- *   2. Fall back to Google AI (cloud) — works everywhere
+ *   2. Try Ollama Cloud — real Gemma 4 via Vercel proxy
+ *   3. Fall back to Google AI (cloud) — works everywhere
+ *
+ * Runtime fallback: if the active provider fails during inference
+ * (e.g., Ollama Cloud 504), automatically retries with Google AI.
  *
  * The rest of the app imports `aiService` from this file
  * instead of directly importing ollamaService.
- * All method calls are forwarded to whichever backend is active.
  */
 
 import ollamaService from './ollamaService';
 import geminiService from './geminiService';
+
+/**
+ * Extract a human-readable error message from any error shape.
+ * The Ollama SDK sometimes throws objects where .message is itself an object.
+ */
+function extractErrorMessage(err) {
+  if (!err) return 'Unknown error';
+  if (typeof err === 'string') return err;
+  if (typeof err.message === 'string' && err.message) return err.message;
+  if (typeof err.message === 'object') {
+    // Ollama SDK sometimes wraps errors like { message: { error: '...' } }
+    return err.message.error || JSON.stringify(err.message);
+  }
+  if (err.error) return typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+  if (err.statusText) return `${err.status || ''} ${err.statusText}`.trim();
+  try { return JSON.stringify(err); } catch { return String(err); }
+}
 
 class AIAdapter {
   constructor() {
@@ -20,6 +40,7 @@ class AIAdapter {
     this.isReady = false;
     this._initPromise = null;
     this._isStreaming = false;           // guard: prevents polling from disrupting active streams
+    this._googleAiReady = false;        // whether Google AI fallback is initialized
   }
 
   /**
@@ -38,7 +59,7 @@ class AIAdapter {
   async _detectBackend(preferredModel) {
     // 1. Try Ollama (local) first — with a fast 3s timeout so cloud fallback isn't delayed
     try {
-      ollamaService.switchToLocal(); // ensure we're pointing at local
+      ollamaService.switchToLocal();
       const ollamaPromise = ollamaService.checkConnection(preferredModel);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 3000)
@@ -48,13 +69,29 @@ class AIAdapter {
         this.activeService = ollamaService;
         this.provider = 'ollama';
         this.isReady = true;
+        this._initGoogleAiFallback(); // warm up fallback in background
         return { ...ollamaStatus, provider: 'ollama' };
       }
     } catch { /* Ollama local unavailable or timed out */ }
 
-    // 2. Try Ollama Cloud — runs REAL Gemma 4 models via Vercel proxy
-    //    The proxy at /api/ollama-cloud forwards to ollama.com with the API key
-    //    server-side. We always try it (the proxy returns 500 if no key is set).
+    // 2. Try Google AI (Gemini) — reliable cloud inference
+    const googleKey = import.meta.env.VITE_GOOGLE_AI_KEY;
+    if (googleKey) {
+      try {
+        geminiService.init(googleKey);
+        const geminiStatus = await geminiService.checkConnection();
+        if (geminiStatus.connected) {
+          this.activeService = geminiService;
+          this.provider = 'google-ai';
+          this.isReady = true;
+          this._googleAiReady = true;
+          return { ...geminiStatus, provider: 'google-ai' };
+        }
+      } catch { /* Gemini also unavailable */ }
+    }
+
+    // 3. Try Ollama Cloud — runs Gemma 4 models via Vercel proxy
+    //    Moved after Google AI since the /api/chat endpoint may not support inference
     try {
       ollamaService.switchToCloud();
       const cloudPromise = ollamaService.checkConnection(preferredModel);
@@ -70,21 +107,6 @@ class AIAdapter {
       }
     } catch { /* Ollama cloud unavailable or timed out */ }
 
-    // 3. Try Google AI (Gemini) as last-resort fallback
-    const googleKey = import.meta.env.VITE_GOOGLE_AI_KEY;
-    if (googleKey) {
-      try {
-        geminiService.init(googleKey);
-        const geminiStatus = await geminiService.checkConnection();
-        if (geminiStatus.connected) {
-          this.activeService = geminiService;
-          this.provider = 'google-ai';
-          this.isReady = true;
-          return { ...geminiStatus, provider: 'google-ai' };
-        }
-      } catch { /* Gemini also unavailable */ }
-    }
-
     // 4. Nothing available — return disconnected
     this.isReady = false;
     return {
@@ -92,8 +114,63 @@ class AIAdapter {
       provider: 'none',
       error: googleKey
         ? 'No AI backend is reachable. Check your API keys and internet connection.'
-        : 'No AI backend configured. Set OLLAMA_API_KEY or VITE_GOOGLE_AI_KEY in your environment.',
+        : 'No AI backend configured. Set VITE_GOOGLE_AI_KEY in your environment.',
     };
+  }
+
+  /**
+   * Warm up Google AI as a fallback (non-blocking).
+   * If primary is Ollama (local or cloud), we initialize Gemini in the background
+   * so runtime fallback is instant when primary fails.
+   */
+  _initGoogleAiFallback() {
+    if (this._googleAiReady) return;
+    const googleKey = import.meta.env.VITE_GOOGLE_AI_KEY;
+    if (googleKey) {
+      try {
+        geminiService.init(googleKey);
+        this._googleAiReady = true;
+      } catch { /* ignore */ }
+    }
+  }
+
+  /**
+   * Runtime fallback wrapper.
+   * Tries activeService first; if it throws (e.g., Ollama Cloud 504),
+   * automatically retries with Google AI if available.
+   */
+  async _withFallback(method, args) {
+    this._isStreaming = true;
+    try {
+      return await this.activeService[method](...args);
+    } catch (primaryErr) {
+      // If active service is already Google AI, or no fallback available, rethrow
+      if (this.provider === 'google-ai' || !this._googleAiReady) {
+        // Normalize the error before rethrowing
+        const msg = extractErrorMessage(primaryErr);
+        const err = new Error(msg);
+        err.originalError = primaryErr;
+        throw err;
+      }
+
+      // Try Google AI fallback
+      console.warn(`[AIAdapter] ${this.provider} failed, falling back to Google AI:`, extractErrorMessage(primaryErr));
+      try {
+        const result = await geminiService[method](...args);
+        // Fallback succeeded — switch provider for subsequent calls
+        this.activeService = geminiService;
+        this.provider = 'google-ai';
+        return result;
+      } catch (fallbackErr) {
+        // Both failed — throw the more useful error
+        const msg = extractErrorMessage(primaryErr);
+        const err = new Error(`${msg} (Google AI fallback also failed: ${extractErrorMessage(fallbackErr)})`);
+        err.originalError = primaryErr;
+        throw err;
+      }
+    } finally {
+      this._isStreaming = false;
+    }
   }
 
   /**
@@ -101,7 +178,7 @@ class AIAdapter {
    */
   async switchProvider(provider, apiKey) {
     if (provider === 'ollama') {
-      ollamaService.switchToLocal(); // ensure we're pointing at local
+      ollamaService.switchToLocal();
       const status = await ollamaService.checkConnection();
       if (status.connected) {
         this.activeService = ollamaService;
@@ -119,6 +196,7 @@ class AIAdapter {
         this.activeService = geminiService;
         this.provider = 'google-ai';
         this.isReady = true;
+        this._googleAiReady = true;
         return status;
       }
       return { connected: false, error: 'Google AI not available' };
@@ -129,14 +207,11 @@ class AIAdapter {
 
   /**
    * Re-check connection on current provider, or auto-detect again.
-   * Once connected, only re-checks the active provider (no re-probing).
    */
   async checkConnection(preferredModel) {
-    // Don't re-probe while actively streaming — it would destroy the connection
     if (this._isStreaming && this.isReady) {
       return this.getStatus();
     }
-    // If already connected, just verify the current provider is still alive
     if (this.isReady && this.provider === 'google-ai') {
       try {
         const status = await geminiService.checkConnection();
@@ -154,12 +229,11 @@ class AIAdapter {
         this.isReady = false;
       }
     }
-    // Not ready or provider went down — full detection
     return this._detectBackend(preferredModel);
   }
 
   // ═══════════════════════════════════
-  //  Forwarded methods — mirror ollamaService API
+  //  Forwarded methods — with runtime fallback
   // ═══════════════════════════════════
 
   get supportsThinking() { return this.activeService.supportsThinking; }
@@ -168,50 +242,22 @@ class AIAdapter {
   setModel(modelId) { return this.activeService.setModel(modelId); }
   abort() { return this.activeService.abort(); }
 
-  // Streaming-aware wrappers — set guard so polling doesn't destroy in-flight connections
-  async explain(content, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.explain(content, options); }
-    finally { this._isStreaming = false; }
-  }
+  // Streaming operations — wrapped with fallback
+  explain(content, options) { return this._withFallback('explain', [content, options]); }
   explainImage(imageBase64, options) { return this.explain({ images: [imageBase64] }, options); }
-  async simplify(content, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.simplify(content, options); }
-    finally { this._isStreaming = false; }
-  }
-  async translate(content, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.translate(content, options); }
-    finally { this._isStreaming = false; }
-  }
-  async deepDive(content, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.deepDive(content, options); }
-    finally { this._isStreaming = false; }
-  }
-  async askFollowUp(context, question, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.askFollowUp(context, question, options); }
-    finally { this._isStreaming = false; }
-  }
-  async summarize(text, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.summarize(text, options); }
-    finally { this._isStreaming = false; }
-  }
-  async solveStepByStep(content, options) {
-    this._isStreaming = true;
-    try { return await this.activeService.solveStepByStep(content, options); }
-    finally { this._isStreaming = false; }
-  }
+  simplify(content, options) { return this._withFallback('simplify', [content, options]); }
+  translate(content, options) { return this._withFallback('translate', [content, options]); }
+  deepDive(content, options) { return this._withFallback('deepDive', [content, options]); }
+  askFollowUp(context, question, options) { return this._withFallback('askFollowUp', [context, question, options]); }
+  summarize(text, options) { return this._withFallback('summarize', [text, options]); }
+  solveStepByStep(content, options) { return this._withFallback('solveStepByStep', [content, options]); }
 
-  // Non-streaming operations — no guard needed
-  generateQuiz(content, options) { return this.activeService.generateQuiz(content, options); }
-  generateFlashcards(content, options) { return this.activeService.generateFlashcards(content, options); }
-  extractKeyTerms(content, options) { return this.activeService.extractKeyTerms(content, options); }
-  detectSubject(content) { return this.activeService.detectSubject(content); }
-  generateStudyPlan(content, options) { return this.activeService.generateStudyPlan(content, options); }
+  // Non-streaming operations — also with fallback
+  generateQuiz(content, options) { return this._withFallback('generateQuiz', [content, options]); }
+  generateFlashcards(content, options) { return this._withFallback('generateFlashcards', [content, options]); }
+  extractKeyTerms(content, options) { return this._withFallback('extractKeyTerms', [content, options]); }
+  detectSubject(content) { return this._withFallback('detectSubject', [content]); }
+  generateStudyPlan(content, options) { return this._withFallback('generateStudyPlan', [content, options]); }
 
   getStatus() {
     const status = this.activeService.getStatus();
