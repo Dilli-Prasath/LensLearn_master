@@ -74,7 +74,26 @@ class AIAdapter {
       }
     } catch { /* Ollama local unavailable or timed out */ }
 
-    // 2. Try Google AI (Gemini) — reliable cloud inference
+    // 2. Try Ollama Cloud — real Gemma 4 models via Vercel proxy
+    //    Shows "Gemma 4" branding for the hackathon.
+    //    If /api/chat fails at runtime, _withFallback auto-switches to Google AI.
+    try {
+      ollamaService.switchToCloud();
+      const cloudPromise = ollamaService.checkConnection(preferredModel);
+      const cloudTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 8000)
+      );
+      const cloudStatus = await Promise.race([cloudPromise, cloudTimeout]);
+      if (cloudStatus.connected) {
+        this.activeService = ollamaService;
+        this.provider = 'ollama-cloud';
+        this.isReady = true;
+        this._initGoogleAiFallback(); // warm up Google AI for runtime fallback
+        return { ...cloudStatus, provider: 'ollama-cloud' };
+      }
+    } catch { /* Ollama cloud unavailable or timed out */ }
+
+    // 3. Try Google AI (Gemini) — last-resort cloud fallback
     const googleKey = import.meta.env.VITE_GOOGLE_AI_KEY;
     if (googleKey) {
       try {
@@ -89,23 +108,6 @@ class AIAdapter {
         }
       } catch { /* Gemini also unavailable */ }
     }
-
-    // 3. Try Ollama Cloud — runs Gemma 4 models via Vercel proxy
-    //    Moved after Google AI since the /api/chat endpoint may not support inference
-    try {
-      ollamaService.switchToCloud();
-      const cloudPromise = ollamaService.checkConnection(preferredModel);
-      const cloudTimeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 8000)
-      );
-      const cloudStatus = await Promise.race([cloudPromise, cloudTimeout]);
-      if (cloudStatus.connected) {
-        this.activeService = ollamaService;
-        this.provider = 'ollama-cloud';
-        this.isReady = true;
-        return { ...cloudStatus, provider: 'ollama-cloud' };
-      }
-    } catch { /* Ollama cloud unavailable or timed out */ }
 
     // 4. Nothing available — return disconnected
     this.isReady = false;
