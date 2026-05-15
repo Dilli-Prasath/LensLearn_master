@@ -20,11 +20,15 @@ function formatModelName(model) {
     const parts = m.replace('gemma', 'Gemma ').split(':');
     return parts[0] + (parts[1] ? ' ' + parts[1].toUpperCase() : '');
   }
+  if (m.startsWith('gemini')) {
+    return model.replace('gemini-', 'Gemini ').replace('-', ' ');
+  }
   return model;
 }
 
 export default function Header() {
   const connectionStatus = useConnectionStore((s) => s.status);
+  const provider = useConnectionStore((s) => s.provider);
   const checkConnection = useConnectionStore((s) => s.check);
   const navigate = useNavigate();
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -66,13 +70,13 @@ export default function Header() {
               variant="success"
               dot
               pulse
-              title={`Connected: ${connectionStatus.model}`}
+              title={`${provider === 'google-ai' ? 'Cloud' : 'Local'}: ${connectionStatus.model}`}
               className="pop-in"
             >
-              {formatModelName(connectionStatus.model)}
+              {provider === 'google-ai' ? '☁️ ' : ''}{formatModelName(connectionStatus.model)}
             </Badge>
           ) : (
-            <Badge variant="default" title="Ollama not connected">
+            <Badge variant="default" title="AI not connected">
               Offline
             </Badge>
           )}

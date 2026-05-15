@@ -4,7 +4,7 @@
  * AI processing state, quiz, flashcards, and all AI operations.
  */
 import { create } from 'zustand';
-import ollamaService from '../services/ollamaService';
+import aiService from '../services/aiAdapter';
 
 export const useScanStore = create((set, get) => ({
   // ── Current scan data ──
@@ -74,15 +74,19 @@ export const useScanStore = create((set, get) => ({
       const hint = documentContent ? '*Analyzing your document...*' : '*Analyzing your image...*';
       set({ explanation: hint });
 
-      await ollamaService.explain(content, {
+      await aiService.explain(content, {
         language: settings.language,
         gradeLevel: settings.gradeLevel,
         subject: settings.subject,
         onStream: (fullText) => set({ explanation: fullText }),
       });
     } catch (err) {
+      const provider = aiService.provider;
+      const hint = provider === 'google-ai'
+        ? '1. Check your internet connection\n2. Verify the Google AI API key is valid'
+        : '1. Make sure Ollama is running\n2. Run: `ollama pull gemma4:e4b`\n3. Start: `OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve`';
       set({
-        explanation: `**Connection Error**\n\nCouldn't reach the AI model. Please make sure:\n\n1. Ollama is running\n2. Run: \`ollama pull gemma4:e4b\`\n3. Start: \`OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve\`\n\n*Error: ${err.message}*`,
+        explanation: `**Connection Error**\n\nCouldn't reach the AI model.\n\n${hint}\n\n*Error: ${err.message}*`,
         error: err.message,
       });
     }
@@ -94,7 +98,7 @@ export const useScanStore = create((set, get) => ({
     const { explanation } = get();
     set({ isStreaming: true, explanation: '' });
     try {
-      await ollamaService.deepDive(explanation, {
+      await aiService.deepDive(explanation, {
         language,
         onStream: (fullText) => set({ explanation: fullText }),
       });
@@ -109,7 +113,7 @@ export const useScanStore = create((set, get) => ({
     const { explanation } = get();
     set({ isStreaming: true, explanation: '' });
     try {
-      await ollamaService.simplify(explanation, {
+      await aiService.simplify(explanation, {
         language,
         level: 'simpler, using everyday language and fun analogies',
         onStream: (fullText) => set({ explanation: fullText }),
@@ -127,7 +131,7 @@ export const useScanStore = create((set, get) => ({
     const original = explanation;
     set({ explanation: '' });
     try {
-      await ollamaService.translate(original, {
+      await aiService.translate(original, {
         language: newLang,
         onStream: (fullText) => set({ explanation: fullText }),
       });
@@ -141,7 +145,7 @@ export const useScanStore = create((set, get) => ({
   /** Follow-up question */
   askFollowUp: async (question, language) => {
     const { explanation } = get();
-    return ollamaService.askFollowUp(explanation, question, { language });
+    return aiService.askFollowUp(explanation, question, { language });
   },
 
   /** Generate quiz */
@@ -149,7 +153,7 @@ export const useScanStore = create((set, get) => ({
     const { explanation } = get();
     set({ quizLoading: true });
     try {
-      const quizData = await ollamaService.generateQuiz(explanation, {
+      const quizData = await aiService.generateQuiz(explanation, {
         language, difficulty, numQuestions,
       });
       if (quizData.questions?.length > 0) {
@@ -199,7 +203,7 @@ export const useScanStore = create((set, get) => ({
     const { explanation } = get();
     set({ flashcardsLoading: true });
     try {
-      const data = await ollamaService.generateFlashcards(explanation, { language });
+      const data = await aiService.generateFlashcards(explanation, { language });
       if (data.flashcards?.length > 0) {
         set({ flashcards: data.flashcards, flashcardsLoading: false });
         return true;
@@ -216,7 +220,7 @@ export const useScanStore = create((set, get) => ({
     const { explanation } = get();
     set({ keyTermsLoading: true });
     try {
-      const data = await ollamaService.extractKeyTerms(explanation, { language });
+      const data = await aiService.extractKeyTerms(explanation, { language });
       set({ keyTerms: data, keyTermsLoading: false });
       return data;
     } catch (err) {
@@ -231,7 +235,7 @@ export const useScanStore = create((set, get) => ({
     const { explanation } = get();
     set({ studyPlanLoading: true });
     try {
-      const plan = await ollamaService.generateStudyPlan(explanation, { language });
+      const plan = await aiService.generateStudyPlan(explanation, { language });
       set({ studyPlan: plan, studyPlanLoading: false });
       return plan;
     } catch (err) {
@@ -243,7 +247,7 @@ export const useScanStore = create((set, get) => ({
 
   /** Abort current AI operation */
   abort: () => {
-    ollamaService.abort();
+    aiService.abort();
     set({ isStreaming: false, isProcessing: false });
   },
 

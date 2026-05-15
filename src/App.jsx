@@ -3,7 +3,7 @@ import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import { useCamera } from './hooks/useCamera';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import ollamaService from './services/ollamaService';
+import aiService from './services/aiAdapter';
 import historyService from './services/historyService';
 import { device, adaptiveSettings } from './utils/performance';
 import { applyCustomization } from './utils/themes';
@@ -80,7 +80,7 @@ export default function App() {
   // Check Ollama connection on mount and periodically
   useEffect(() => {
     const check = async () => {
-      const status = await ollamaService.checkConnection();
+      const status = await aiService.checkConnection();
       setConnectionStatus(status);
     };
     check();
@@ -90,7 +90,7 @@ export default function App() {
   }, []);
 
   const handleReconnect = useCallback(async () => {
-    const status = await ollamaService.checkConnection();
+    const status = await aiService.checkConnection();
     setConnectionStatus(status);
   }, []);
 
@@ -144,7 +144,7 @@ export default function App() {
         explainContent = { images: [camera.imageBase64] };
       }
 
-      await ollamaService.explain(explainContent, {
+      await aiService.explain(explainContent, {
         language: settings.language,
         gradeLevel: settings.gradeLevel,
         subject: settings.subject,
@@ -166,7 +166,7 @@ export default function App() {
   }, [handleExplain]);
 
   const handleAbort = useCallback(() => {
-    ollamaService.abort();
+    aiService.abort();
     setIsStreaming(false);
     setIsProcessing(false);
   }, []);
@@ -175,7 +175,7 @@ export default function App() {
     setIsStreaming(true);
     setExplanation('');
     try {
-      await ollamaService.deepDive(explanation, {
+      await aiService.deepDive(explanation, {
         language: settings.language,
         onStream: (fullText) => setExplanation(fullText)
       });
@@ -187,7 +187,7 @@ export default function App() {
 
   const handleExtractKeyTerms = useCallback(async () => {
     try {
-      return await ollamaService.extractKeyTerms(explanation, {
+      return await aiService.extractKeyTerms(explanation, {
         language: settings.language
       });
     } catch (err) {
@@ -211,7 +211,7 @@ export default function App() {
   const handleGenerateQuiz = useCallback(async () => {
     setQuizLoading(true);
     try {
-      const quizData = await ollamaService.generateQuiz(explanation, {
+      const quizData = await aiService.generateQuiz(explanation, {
         language: settings.language,
         difficulty: 'medium',
         numQuestions: 4
@@ -229,7 +229,7 @@ export default function App() {
   const handleGenerateFlashcards = useCallback(async () => {
     setFlashcardsLoading(true);
     try {
-      const flashcardData = await ollamaService.generateFlashcards(explanation, {
+      const flashcardData = await aiService.generateFlashcards(explanation, {
         language: settings.language
       });
       if (flashcardData.flashcards.length > 0) {
@@ -246,7 +246,7 @@ export default function App() {
     setIsStreaming(true);
     setExplanation('');
     try {
-      await ollamaService.simplify(explanation, {
+      await aiService.simplify(explanation, {
         language: settings.language,
         level: 'simpler, using everyday language and fun analogies',
         onStream: (fullText) => setExplanation(fullText)
@@ -264,7 +264,7 @@ export default function App() {
       const originalExplanation = explanation;
       setExplanation('');
       try {
-        await ollamaService.translate(originalExplanation, {
+        await aiService.translate(originalExplanation, {
           language: newLang,
           onStream: (fullText) => setExplanation(fullText)
         });
@@ -277,7 +277,7 @@ export default function App() {
   }, [explanation, settings.language, setSettings]);
 
   const handleFollowUp = useCallback(async (question) => {
-    return ollamaService.askFollowUp(explanation, question, {
+    return aiService.askFollowUp(explanation, question, {
       language: settings.language
     });
   }, [explanation, settings.language]);

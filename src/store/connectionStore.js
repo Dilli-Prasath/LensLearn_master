@@ -1,15 +1,17 @@
 /**
  * Connection Store — Zustand
- * Tracks Ollama connection status and model availability.
+ * Tracks AI connection status and model availability.
+ * Auto-detects Ollama (local) or Google AI (cloud) via aiAdapter.
  * Polls periodically based on device tier.
  */
 import { create } from 'zustand';
-import ollamaService from '../services/ollamaService';
+import aiService from '../services/aiAdapter';
 import { device } from '../utils/performance';
 import { useSettingsStore } from './settingsStore';
 
 export const useConnectionStore = create((set, get) => ({
-  status: null,         // { connected, model, models, error }
+  status: null,         // { connected, model, models, error, provider }
+  provider: 'none',     // 'ollama' | 'google-ai' | 'none'
   isChecking: false,
   lastChecked: null,
   pollInterval: null,
@@ -19,8 +21,8 @@ export const useConnectionStore = create((set, get) => ({
     set({ isChecking: true });
     try {
       const preferred = useSettingsStore.getState().preferredModel;
-      const status = await ollamaService.checkConnection(preferred);
-      set({ status, isChecking: false, lastChecked: Date.now() });
+      const status = await aiService.checkConnection(preferred);
+      set({ status, provider: status.provider || aiService.provider, isChecking: false, lastChecked: Date.now() });
       return status;
     } catch (err) {
       set({
@@ -34,7 +36,7 @@ export const useConnectionStore = create((set, get) => ({
 
   // ── Switch model: update service + settings + store in one call ──
   switchModel: (modelId) => {
-    const ok = ollamaService.setModel(modelId);
+    const ok = aiService.setModel(modelId);
     if (ok) {
       // Persist preference
       useSettingsStore.getState().setSetting('preferredModel', modelId);
