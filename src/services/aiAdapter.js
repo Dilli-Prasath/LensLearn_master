@@ -16,7 +16,7 @@ import geminiService from './geminiService';
 class AIAdapter {
   constructor() {
     this.activeService = ollamaService; // default to local
-    this.provider = 'ollama';           // 'ollama' | 'google-ai'
+    this.provider = 'ollama';           // 'ollama' | 'ollama-cloud' | 'google-ai'
     this.isReady = false;
     this._initPromise = null;
   }
@@ -37,6 +37,7 @@ class AIAdapter {
   async _detectBackend(preferredModel) {
     // 1. Try Ollama (local) first — with a fast 3s timeout so cloud fallback isn't delayed
     try {
+      ollamaService.switchToLocal(); // ensure we're pointing at local
       const ollamaPromise = ollamaService.checkConnection(preferredModel);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 3000)
@@ -48,13 +49,28 @@ class AIAdapter {
         this.isReady = true;
         return { ...ollamaStatus, provider: 'ollama' };
       }
-    } catch { /* Ollama unavailable or timed out, try cloud */ }
+    } catch { /* Ollama local unavailable or timed out */ }
 
-    // 2. Try Google AI (cloud) fallback
-    const apiKey = import.meta.env.VITE_GOOGLE_AI_KEY;
-    if (apiKey) {
+    // 2. Try Ollama Cloud — runs REAL Gemma 4 models via ollama.com API
+    const ollamaApiKey = import.meta.env.VITE_OLLAMA_API_KEY;
+    if (ollamaApiKey) {
       try {
-        geminiService.init(apiKey);
+        ollamaService.switchToCloud(ollamaApiKey);
+        const cloudStatus = await ollamaService.checkConnection(preferredModel);
+        if (cloudStatus.connected) {
+          this.activeService = ollamaService;
+          this.provider = 'ollama-cloud';
+          this.isReady = true;
+          return { ...cloudStatus, provider: 'ollama-cloud' };
+        }
+      } catch { /* Ollama cloud unavailable */ }
+    }
+
+    // 3. Try Google AI (Gemini) as last-resort fallback
+    const googleKey = import.meta.env.VITE_GOOGLE_AI_KEY;
+    if (googleKey) {
+      try {
+        geminiService.init(googleKey);
         const geminiStatus = await geminiService.checkConnection();
         if (geminiStatus.connected) {
           this.activeService = geminiService;
@@ -65,14 +81,15 @@ class AIAdapter {
       } catch { /* Gemini also unavailable */ }
     }
 
-    // 3. Nothing available — return disconnected
+    // 4. Nothing available — return disconnected
     this.isReady = false;
+    const hasAnyKey = ollamaApiKey || googleKey;
     return {
       connected: false,
       provider: 'none',
-      error: apiKey
-        ? 'Neither Ollama nor Google AI is reachable.'
-        : 'Ollama is not running and no cloud API key is configured.',
+      error: hasAnyKey
+        ? 'No AI backend is reachable. Check your API keys and internet connection.'
+        : 'No AI backend configured. Set VITE_OLLAMA_API_KEY or VITE_GOOGLE_AI_KEY.',
     };
   }
 
@@ -120,11 +137,10 @@ class AIAdapter {
         this.isReady = false;
       }
     }
-    if (this.isReady && this.provider === 'ollama') {
+    if (this.isReady && (this.provider === 'ollama' || this.provider === 'ollama-cloud')) {
       try {
         const status = await ollamaService.checkConnection(preferredModel);
-        if (status.connected) return { ...status, provider: 'ollama' };
-        // Ollama went down — try to fall back to cloud
+        if (status.connected) return { ...status, provider: this.provider };
         this.isReady = false;
       } catch {
         this.isReady = false;

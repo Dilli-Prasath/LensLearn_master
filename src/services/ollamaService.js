@@ -79,6 +79,33 @@ class OllamaService {
     this.model = DEFAULT_MODEL;
     this.isConnected = false;
     this.availableModels = [];
+    this.isCloud = false;
+  }
+
+  /**
+   * Switch to Ollama Cloud API — runs real Gemma 4 models remotely.
+   * See: https://docs.ollama.com/cloud
+   * @param {string} apiKey - Ollama API key from ollama.com/settings/keys
+   */
+  switchToCloud(apiKey) {
+    this.ollama = new Ollama({
+      host: 'https://ollama.com',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    this.isCloud = true;
+    this.isConnected = false;
+    this.availableModels = [];
+  }
+
+  /**
+   * Switch back to local Ollama instance
+   */
+  switchToLocal() {
+    const host = window.location.origin + '/api/ollama';
+    this.ollama = new Ollama({ host });
+    this.isCloud = false;
+    this.isConnected = false;
+    this.availableModels = [];
   }
 
   /**
@@ -563,7 +590,8 @@ Topic:\n${safeContent}` }
     return {
       connected: this.isConnected,
       model: this.model,
-      models: this.availableModels
+      models: this.availableModels,
+      provider: this.isCloud ? 'ollama-cloud' : 'ollama',
     };
   }
 }

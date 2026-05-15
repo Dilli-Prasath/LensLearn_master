@@ -11,7 +11,7 @@ import { useSettingsStore } from './settingsStore';
 
 export const useConnectionStore = create((set, get) => ({
   status: null,         // { connected, model, models, error, provider }
-  provider: 'none',     // 'ollama' | 'google-ai' | 'none'
+  provider: 'none',     // 'ollama' | 'ollama-cloud' | 'google-ai' | 'none'
   isChecking: false,
   lastChecked: null,
   pollInterval: null,

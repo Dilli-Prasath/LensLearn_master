@@ -70,10 +70,10 @@ export default function Header() {
               variant="success"
               dot
               pulse
-              title={`${provider === 'google-ai' ? 'Cloud' : 'Local'}: ${connectionStatus.model}`}
+              title={`${provider === 'ollama' ? 'Local' : 'Cloud'}: ${connectionStatus.model}`}
               className="pop-in"
             >
-              {provider === 'google-ai' ? '☁️ ' : ''}{formatModelName(connectionStatus.model)}
+              {provider !== 'ollama' ? '☁️ ' : ''}{formatModelName(connectionStatus.model)}
             </Badge>
           ) : (
             <Badge variant="default" title="AI not connected">

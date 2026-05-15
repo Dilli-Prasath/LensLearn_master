@@ -82,9 +82,9 @@ export const useScanStore = create((set, get) => ({
       });
     } catch (err) {
       const provider = aiService.provider;
-      const hint = provider === 'google-ai'
-        ? '1. Check your internet connection\n2. Verify the Google AI API key is valid'
-        : '1. Make sure Ollama is running\n2. Run: `ollama pull gemma4:e4b`\n3. Start: `OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve`';
+      const hint = provider === 'ollama'
+        ? '1. Make sure Ollama is running\n2. Run: `ollama pull gemma4:e4b`\n3. Start: `OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve`'
+        : '1. Check your internet connection\n2. Verify your API key is valid\n3. Try refreshing the page';
       set({
         explanation: `**Connection Error**\n\nCouldn't reach the AI model.\n\n${hint}\n\n*Error: ${err.message}*`,
         error: err.message,
