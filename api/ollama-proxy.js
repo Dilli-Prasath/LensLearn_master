@@ -31,11 +31,13 @@ export default async function handler(req) {
     );
   }
 
-  // Extract the Ollama API path from the URL
-  // /api/ollama-cloud/api/tags → /api/tags
-  // /api/ollama-cloud/api/chat → /api/chat
+  // Extract the Ollama API path.
+  // Vercel rewrites /api/ollama-cloud/api/tags → /api/ollama-proxy?ollamaPath=/api/tags
+  // so we read from the query parameter first, then fall back to pathname parsing.
   const url = new URL(req.url);
-  const ollamaPath = url.pathname.replace(/^\/api\/ollama-cloud/, '') || '/';
+  const ollamaPath = url.searchParams.get('ollamaPath')
+    || url.pathname.replace(/^\/api\/ollama-cloud/, '')
+    || '/';
   const targetUrl = `https://ollama.com${ollamaPath}`;
 
   try {

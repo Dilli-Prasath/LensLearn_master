@@ -19,6 +19,7 @@ class AIAdapter {
     this.provider = 'ollama';           // 'ollama' | 'ollama-cloud' | 'google-ai'
     this.isReady = false;
     this._initPromise = null;
+    this._isStreaming = false;           // guard: prevents polling from disrupting active streams
   }
 
   /**
@@ -100,6 +101,7 @@ class AIAdapter {
    */
   async switchProvider(provider, apiKey) {
     if (provider === 'ollama') {
+      ollamaService.switchToLocal(); // ensure we're pointing at local
       const status = await ollamaService.checkConnection();
       if (status.connected) {
         this.activeService = ollamaService;
@@ -130,6 +132,10 @@ class AIAdapter {
    * Once connected, only re-checks the active provider (no re-probing).
    */
   async checkConnection(preferredModel) {
+    // Don't re-probe while actively streaming — it would destroy the connection
+    if (this._isStreaming && this.isReady) {
+      return this.getStatus();
+    }
     // If already connected, just verify the current provider is still alive
     if (this.isReady && this.provider === 'google-ai') {
       try {
@@ -162,18 +168,49 @@ class AIAdapter {
   setModel(modelId) { return this.activeService.setModel(modelId); }
   abort() { return this.activeService.abort(); }
 
-  explain(content, options) { return this.activeService.explain(content, options); }
-  explainImage(imageBase64, options) { return this.activeService.explainImage(imageBase64, options); }
+  // Streaming-aware wrappers — set guard so polling doesn't destroy in-flight connections
+  async explain(content, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.explain(content, options); }
+    finally { this._isStreaming = false; }
+  }
+  explainImage(imageBase64, options) { return this.explain({ images: [imageBase64] }, options); }
+  async simplify(content, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.simplify(content, options); }
+    finally { this._isStreaming = false; }
+  }
+  async translate(content, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.translate(content, options); }
+    finally { this._isStreaming = false; }
+  }
+  async deepDive(content, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.deepDive(content, options); }
+    finally { this._isStreaming = false; }
+  }
+  async askFollowUp(context, question, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.askFollowUp(context, question, options); }
+    finally { this._isStreaming = false; }
+  }
+  async summarize(text, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.summarize(text, options); }
+    finally { this._isStreaming = false; }
+  }
+  async solveStepByStep(content, options) {
+    this._isStreaming = true;
+    try { return await this.activeService.solveStepByStep(content, options); }
+    finally { this._isStreaming = false; }
+  }
+
+  // Non-streaming operations — no guard needed
   generateQuiz(content, options) { return this.activeService.generateQuiz(content, options); }
   generateFlashcards(content, options) { return this.activeService.generateFlashcards(content, options); }
   extractKeyTerms(content, options) { return this.activeService.extractKeyTerms(content, options); }
   detectSubject(content) { return this.activeService.detectSubject(content); }
-  simplify(content, options) { return this.activeService.simplify(content, options); }
-  translate(content, options) { return this.activeService.translate(content, options); }
-  askFollowUp(context, question, options) { return this.activeService.askFollowUp(context, question, options); }
-  summarize(text, options) { return this.activeService.summarize(text, options); }
-  deepDive(content, options) { return this.activeService.deepDive(content, options); }
-  solveStepByStep(content, options) { return this.activeService.solveStepByStep(content, options); }
   generateStudyPlan(content, options) { return this.activeService.generateStudyPlan(content, options); }
 
   getStatus() {

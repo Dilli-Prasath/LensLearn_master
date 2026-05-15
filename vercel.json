@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/ollama-cloud/:path*", "destination": "/api/ollama-proxy" },
+    { "source": "/api/ollama-cloud/:path*", "destination": "/api/ollama-proxy?ollamaPath=/:path*" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

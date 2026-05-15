@@ -74,7 +74,7 @@ function limitImages(images, max = MAX_PAGE_IMAGES) {
 
 class OllamaService {
   constructor() {
-    const host = window.location.origin + '/api/ollama';
+    const host = window.location.origin + '/api/ollama-local';
     this.ollama = new Ollama({ host });
     this.model = DEFAULT_MODEL;
     this.isConnected = false;
@@ -101,7 +101,7 @@ class OllamaService {
    * Switch back to local Ollama instance
    */
   switchToLocal() {
-    const host = window.location.origin + '/api/ollama';
+    const host = window.location.origin + '/api/ollama-local';
     this.ollama = new Ollama({ host });
     this.isCloud = false;
     this.isConnected = false;
