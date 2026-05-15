@@ -1,13 +1,14 @@
 /**
- * Vercel Edge Function — Ollama Cloud Proxy
+ * Vercel Serverless Function — Ollama Cloud Proxy
  *
  * Proxies browser requests to https://ollama.com/api/*
  * solving the CORS issue (browser → same-origin proxy → Ollama Cloud).
  *
- * The API key is read from server-side env vars, so it never
- * appears in the client JS bundle.
+ * The API key is read from server-side env vars only.
+ * Supports streaming for /api/chat responses.
  *
- * Supports streaming for /api/chat (SSE responses).
+ * All /api/ollama-cloud/* requests are rewritten to this function
+ * via vercel.json rewrites.
  */
 
 export const config = { runtime: 'edge' };
@@ -67,7 +68,6 @@ export default async function handler(req) {
         headers: {
           ...corsHeaders(),
           'Content-Type': contentType,
-          'Transfer-Encoding': 'chunked',
           'Cache-Control': 'no-cache',
         },
       });
