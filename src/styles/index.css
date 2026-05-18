@@ -799,28 +799,48 @@ input:focus, textarea:focus, select:focus {
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
   z-index: 99999;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .skip-link {
   position: absolute;
-  top: -100px;
-  left: 8px;
-  padding: 12px 24px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
   background: var(--primary);
   color: white;
   font-size: 14px;
   font-weight: 700;
-  border-radius: 0 0 8px 8px;
   text-decoration: none;
   z-index: 99999;
-  transition: top 0.2s;
+  pointer-events: auto;
 }
 
 .skip-link:focus {
-  top: 0;
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  height: auto;
+  padding: 12px 24px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border-radius: 10px;
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
 
 /* ── Enhanced Focus Ring (for data-focus-highlight) ── */
