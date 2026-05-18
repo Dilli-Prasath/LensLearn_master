@@ -8,6 +8,7 @@ import {
 import Button from '../lib/components/Button';
 import Card from '../lib/components/Card';
 import IconButton from '../lib/components/IconButton';
+import ErrorAlert from './ErrorAlert';
 import Chip from '../lib/components/Chip';
 import Modal from '../lib/components/Modal';
 import LanguageSelector from '../lib/components/LanguageSelector';
@@ -48,6 +49,7 @@ ChatMessage.displayName = 'ChatMessage';
 
 export default function ExplanationView({
   explanation,
+  error,
   isStreaming,
   imagePreview,
   language,
@@ -210,7 +212,13 @@ export default function ExplanationView({
     setTimeout(() => setIsRefreshing(false), 800);
   }, [onRetry]);
 
-  const isMainExplanationError = explanation && (explanation.includes('Connection Error') || explanation.includes('Error:'));
+  // Error state: structured error object from aiAdapter, or legacy string-based detection
+  const isMainExplanationError = !!(error && error.attempts) ||
+    (explanation && (
+      explanation.includes('Could not generate explanation') ||
+      explanation.includes('Connection Error') ||
+      explanation.includes('Error:')
+    ));
 
   // Memoize markdown components — static, never changes
   const mdComponents = useMemo(() => ({
@@ -305,32 +313,36 @@ export default function ExplanationView({
         <img src={imagePreview} alt="Original" style={styles.imageModalImg} loading="lazy" />
       </Modal>
 
-      {/* Error card - using library Card component */}
+      {/* Error display — rich diagnostic alert or fallback markdown */}
       {isMainExplanationError && (
-        <Card variant="default" style={styles.errorCard}>
-          <Card.Header
-            icon={<AlertTriangle size={20} color="var(--error)" />}
-            title="Unable to generate explanation"
-            style={{ marginBottom: 12 }}
-          />
-          <Card.Body style={styles.errorText}>
-            {explanation}
-          </Card.Body>
-          <Card.Footer>
-            <Button
-              variant="danger"
-              size="sm"
-              icon={<RotateCcw size={16} />}
-              onClick={handleRetry}
-            >
-              Retry
-            </Button>
-          </Card.Footer>
-        </Card>
+        error && error.attempts ? (
+          <ErrorAlert error={error} onRetry={handleRetry} />
+        ) : (
+          <Card variant="default" style={styles.errorCard}>
+            <Card.Header
+              icon={<AlertTriangle size={20} color="var(--error)" />}
+              title="Unable to generate explanation"
+              style={{ marginBottom: 12 }}
+            />
+            <Card.Body style={styles.errorText}>
+              {explanation}
+            </Card.Body>
+            <Card.Footer>
+              <Button
+                variant="danger"
+                size="sm"
+                icon={<RotateCcw size={16} />}
+                onClick={handleRetry}
+              >
+                Retry
+              </Button>
+            </Card.Footer>
+          </Card>
+        )
       )}
 
-      {/* Explanation content - Card format with action buttons */}
-      <Card style={styles.explanationCard} variant="default">
+      {/* Explanation content - Card format with action buttons (hide when structured error) */}
+      <Card style={{ ...styles.explanationCard, display: (error && error.attempts && !explanation) ? 'none' : undefined }} variant="default">
         <Card.Header
           icon={<Sparkles size={18} color="var(--accent)" />}
           title="Explanation"

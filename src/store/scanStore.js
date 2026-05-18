@@ -81,17 +81,24 @@ export const useScanStore = create((set, get) => ({
         onStream: (fullText) => set({ explanation: fullText }),
       });
     } catch (err) {
-      const provider = aiService.provider;
-      const hint = provider === 'ollama'
-        ? '1. Make sure Ollama is running\n2. Run: `ollama pull gemma4:e4b`\n3. Start: `OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve`'
-        : '1. Check your internet connection\n2. Verify your API key is valid\n3. Try refreshing the page';
-      // Extract a clean string from the error (Ollama SDK sometimes throws {message: {error: '...'}})
-      const errMsg = typeof err?.message === 'string' ? err.message
-        : typeof err?.message === 'object' ? (err.message.error || JSON.stringify(err.message))
-        : String(err);
+      // The aiAdapter attaches a structured error object with provider diagnostics
+      const structured = err?.structured || {
+        title: 'Could not generate explanation',
+        attempts: [{
+          provider: 'AI Service',
+          providerId: 'unknown',
+          status: 'failed',
+          type: 'unknown',
+          reason: (typeof err?.message === 'string' ? err.message : 'Unknown error'),
+          suggestion: 'Try refreshing the page.',
+        }],
+        suggestion: 'Try refreshing the page.',
+        timestamp: new Date().toLocaleTimeString(),
+      };
+
       set({
-        explanation: `**Connection Error**\n\nCouldn't reach the AI model.\n\n${hint}\n\n*Error: ${errMsg}*`,
-        error: errMsg,
+        explanation: '', // Clear any partial explanation
+        error: structured,
       });
     }
     set({ isStreaming: false, isProcessing: false });

@@ -27,7 +27,7 @@ export default function ExplanationPage() {
   const navigate = useNavigate();
   const {
     explanation, isStreaming, capturedImage, documentContent,
-    quizLoading, flashcardsLoading,
+    quizLoading, flashcardsLoading, error,
     abort, deepDive, simplify, translate,
     askFollowUp, generateQuiz, generateFlashcards,
     extractKeyTerms, viewingSession, resetScan, explain,
@@ -44,7 +44,8 @@ export default function ExplanationPage() {
   useEffect(() => {
     if (prevStreamingRef.current && !isStreaming && explanation && !viewingSession && !autoSavedRef.current) {
       const hasContent = capturedImage || documentContent;
-      if (hasContent && explanation && !explanation.startsWith('**Connection Error**')) {
+      const scanError = useScanStore.getState().error;
+      if (hasContent && explanation && !scanError) {
         autoSavedRef.current = true;
         const thumbnailSource = capturedImage || documentContent?.preview || null;
         saveSession({
@@ -144,6 +145,7 @@ export default function ExplanationPage() {
       <BackButton onClick={handleBack} label={isViewingHistory ? 'Back' : 'New Scan'} />
       <ExplanationView
         explanation={explanation}
+        error={error}
         isStreaming={isStreaming}
         imagePreview={imagePreview}
         language={settings.language}
