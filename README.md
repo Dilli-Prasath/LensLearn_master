@@ -6,13 +6,13 @@
 
 <p align="center">
   <strong>Point your lens. Learn anything.</strong><br/>
-  An offline-first AI tutor powered by Google's Gemma 4 — scan any textbook page, get step-by-step explanations in 15+ languages.
+  An offline-first AI tutor powered by Google's Gemma 4 — scan any textbook page, get step-by-step explanations in 60+ languages.
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick Start</a> •
+  <a href="https://lens-learn-master.vercel.app" target="_blank"><strong>Live Demo</strong></a> •
   <a href="#features">Features</a> •
-  <a href="#how-it-works">How It Works</a> •
+  <a href="#quick-start">Quick Start</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#hackathon">Hackathon</a> •
   <a href="#license">License</a>
@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/PWA-Offline_First-5A0FC8?style=flat-square" alt="PWA" />
   <img src="https://img.shields.io/badge/License-Apache_2.0-D22128?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/badge/Languages-15+-10B981?style=flat-square" alt="Languages" />
+  <img src="https://img.shields.io/badge/Languages-60+-10B981?style=flat-square" alt="Languages" />
 </p>
 
 ---
@@ -43,7 +43,7 @@ LensLearn turns any smartphone into a personal AI tutor:
 4. **Review** — Create flashcards for spaced repetition
 5. **Ask** — Follow up with questions, like chatting with a real tutor
 
-**Everything runs locally on your device.** No internet required. No cloud servers. No data collection. No cost.
+**Runs locally on your device** with Ollama, or instantly via cloud — no cost, no data collection.
 
 ---
 
@@ -51,20 +51,25 @@ LensLearn turns any smartphone into a personal AI tutor:
 
 | Feature | Description |
 |---------|-------------|
-| **Multimodal AI** | Gemma 4 processes text, equations, diagrams, charts, and handwriting from camera or uploaded images |
-| **15+ Languages** | Explanations in English, Tamil, Hindi, Spanish, Arabic, Chinese, French, German, Japanese, Korean, and more |
-| **Adaptive Difficulty** | Adjusts from elementary to university level based on student preference |
-| **Auto-Generated Quizzes** | Multiple-choice questions generated from the explained content |
-| **Flashcards** | Spaced repetition cards for effective review |
-| **Follow-up Chat** | Ask clarifying questions conversationally |
+| **Multimodal AI** | Gemma 4 processes text, equations, diagrams, charts, and handwriting from camera or uploaded files |
+| **60+ Languages** | 10 core + 26 Indian languages (Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Odia, Tulu, Santali, and more) + 24 world languages |
+| **3-Tier AI Fallback** | Local Ollama → Ollama Cloud → Google AI (Gemini) — always works, on any device |
+| **Adaptive Difficulty** | Elementary to university level based on student preference |
+| **Auto-Generated Quizzes** | Multiple-choice questions with answer normalization and streak tracking |
+| **Flashcards** | Flip cards with shuffle, progress tracking, and keyboard shortcuts |
+| **Follow-up Chat** | Ask clarifying questions with suggested follow-ups |
+| **Deep Dive & Simplify** | Toggle between beginner-friendly and academic-level explanations |
+| **Key Terms Extraction** | Auto-identify and define vocabulary from any content |
 | **Text-to-Speech** | Reads explanations aloud via Web Speech API |
-| **Document Support** | Upload PDF and DOCX files in addition to camera capture |
+| **Document Upload** | PDF, DOCX, and TXT file support with page-by-page analysis |
+| **Image Cropping** | Focus on specific problems within a textbook page |
 | **Offline PWA** | Installs from browser, works without internet |
-| **Privacy-First** | All processing on-device — zero data transmitted |
-| **Accessible** | Screen reader support, high contrast, color-blind filters, voice control, keyboard navigation |
-| **Multi-Model** | Supports 6 models — auto-selects the best one for your hardware |
+| **Privacy-First** | Local processing by default — zero data transmitted |
+| **Accessible** | Screen reader, high contrast, color-blind filters, voice control, keyboard navigation |
+| **10 AI Models** | Gemma 4 family (E2B, E4B, 12B, 27B, 31B), Gemma 3, Gemini Flash — auto-selects best for your hardware |
 | **12 Subjects** | Math, Science, Physics, Chemistry, Biology, History, English, Geography, CS, Economics, Medicine, Languages |
-| **5 Themes** | Dark, light, and accent color customization |
+| **5 Themes** | Dark, Light, OLED, High Contrast, Sepia + 10 accent colors |
+| **Favorites & History** | Bookmark subjects, auto-save sessions, search and filter past scans |
 
 ---
 
@@ -73,81 +78,101 @@ LensLearn turns any smartphone into a personal AI tutor:
 ```
 Student's Phone / Browser
         │
-        ├── Camera API or File Upload (capture textbook page)
+        ├── Camera API or File Upload (PDF, DOCX, TXT, image)
         ├── Image Cropper (focus on specific problems)
         │
         ▼
 React PWA (Offline-Capable)
         │
-        ├── Zustand Stores (settings, history, scan state)
+        ├── Zustand Stores (settings, history, scan, connection, accessibility)
         ├── Service Worker (Workbox — asset caching)
         ├── Explanation Cache (DJB2 content hashing)
         │
         ▼
-Ollama (Local AI Server)
+AI Adapter (auto-detects best backend)
         │
-        ├── Gemma 4 E4B (4B multimodal — recommended)
-        ├── Gemma 4 E2B (2B — for low-end devices)
-        ├── Chain-of-thought reasoning (thinking mode)
+        ├── 1. Ollama Local — fastest, private, offline
+        ├── 2. Ollama Cloud — Gemma 4 via Vercel proxy
+        ├── 3. Google AI (Gemini 2.0 Flash) — runtime fallback
         │
         ▼
-Output: Explanation → Quiz → Flashcards → Follow-up
+Output Pipeline
         │
-        ├── Text-to-Speech (Web Speech API)
-        ├── Export (text file download)
-        └── History (localStorage persistence)
+        ├── Streaming Explanation → Markdown rendering
+        ├── Quiz Generation → Answer normalization → Score tracking
+        ├── Flashcard Generation → Spaced repetition
+        ├── Follow-up Chat → Contextual Q&A
+        ├── Key Terms → Vocabulary extraction
+        ├── Text-to-Speech → Web Speech API
+        ├── Export → Text file download
+        └── History → localStorage persistence
 ```
 
 ---
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Try the Live Demo (No Setup)
+
+Visit **[lens-learn-master.vercel.app](https://lens-learn-master.vercel.app)** — it connects to cloud AI automatically.
+
+### Option 2: Run Locally with Ollama
 
 | Tool | Version | Purpose |
 |------|---------|---------|
 | [Node.js](https://nodejs.org/) | 18+ | JavaScript runtime |
 | [Ollama](https://ollama.ai/) | Latest | Local AI model server |
-| Git | Any | Version control |
-
-### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/dilliprasath/lenslearn.git
+# Clone and install
+git clone https://github.com/Dilli-Prasath/LensLearn.git
 cd lenslearn
-
-# Install dependencies
 npm install
 
-# Pull the recommended Gemma 4 model (~9.6 GB)
+# Pull the recommended Gemma 4 model
 ollama pull gemma4:e4b
 
-# Start Ollama with CORS enabled (required for browser access)
+# Start Ollama with CORS enabled
 OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS="*" ollama serve
 
 # In a new terminal — start LensLearn
 npm run dev
 ```
 
-Open **http://localhost:5173** in your browser. The green dot in the header confirms Ollama is connected.
+Open **http://localhost:5173**. The green dot in the header confirms Ollama is connected.
 
 ### Alternative Models
 
 ```bash
-# Lightweight (for devices with <8GB RAM)
-ollama pull gemma4:e2b
+ollama pull gemma4:e2b    # Lightweight (< 8GB RAM)
+ollama pull gemma4:12b    # High quality (16GB+ RAM)
+ollama pull gemma4:27b    # Best quality (32GB+ RAM)
+```
 
-# Full power (for devices with 32GB+ RAM)
-ollama pull gemma3:12b
+### Environment Variables (for Cloud Deployment)
+
+```bash
+cp .env.example .env
+# Edit .env with your API keys:
+# VITE_OLLAMA_API_KEY=your-ollama-cloud-key
+# VITE_GOOGLE_AI_KEY=your-google-ai-key
 ```
 
 ### Build for Production
 
 ```bash
 npm run build      # Outputs to dist/
-npm run preview    # Preview the production build locally
+npm run preview    # Preview locally
 ```
+
+### Deploy to Vercel
+
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+The `vercel.json` and `api/ollama-proxy.js` are already configured for serverless deployment with Ollama Cloud proxying.
 
 ---
 
@@ -159,8 +184,10 @@ npm run preview    # Preview the production build locally
 |-------|-----------|---------|
 | **Frontend** | React 18.3 + Vite 5.4 | Component-based PWA |
 | **Routing** | React Router 6 | 14 routes, lazy-loaded |
-| **State** | Zustand 5.0 | 5 stores, localStorage persistence |
+| **State** | Zustand 5.0 | 7 stores, localStorage persistence |
 | **AI Runtime** | Ollama + Gemma 4 | Local multimodal inference |
+| **AI Fallback** | Google AI (Gemini) | Cloud fallback with runtime switching |
+| **AI Proxy** | Vercel Edge Functions | CORS-free Ollama Cloud access |
 | **Markdown** | react-markdown 9.0 | AI explanation rendering |
 | **Documents** | pdfjs-dist + mammoth | PDF and DOCX parsing |
 | **Icons** | lucide-react | Tree-shakeable icon library |
@@ -171,34 +198,45 @@ npm run preview    # Preview the production build locally
 
 ```
 src/
-├── config/          # Model registry (6 models), Subject registry (12 subjects)
+├── config/          # Model registry (10 models), Language registry (60+), Subject registry (12)
 ├── pages/           # 13 page components (Home, Scan, Explain, Quiz, Flashcards, etc.)
-├── components/      # 12 app-specific components + accessibility module
-├── store/           # 5 Zustand stores (settings, history, scan, connection, accessibility)
-├── services/        # 6 services (AI, documents, cache, export, speech, history)
+├── components/      # 12 app-specific components + accessibility module (4 components)
+├── store/           # 7 Zustand stores (settings, history, scan, connection, accessibility, + index, migrate)
+├── services/        # 8 services (AI adapter, Ollama, Gemini, documents, cache, export, speech, history)
 ├── hooks/           # Camera, localStorage hooks
-├── lib/             # Publishable component library
-│   ├── components/  # 20 reusable UI components
+├── lib/             # Publishable component library (@lenslearn/ui)
+│   ├── components/  # 19 reusable UI components
 │   ├── hooks/       # 19 custom hooks
 │   ├── tokens/      # Design token system
 │   ├── animations/  # 20+ animation primitives
 │   ├── utils/       # 16 utility functions
 │   ├── hoc/         # 6 higher-order components
 │   └── providers/   # Theme + Accessibility providers
-├── utils/           # Themes, performance detection
+├── utils/           # Themes (5), performance detection
 └── styles/          # Global CSS
+api/
+└── ollama-proxy.js  # Vercel Edge Function — Ollama Cloud CORS proxy
+```
+
+### AI Service Architecture
+
+```
+aiAdapter.js (single entry point for the app)
+    │
+    ├── _detectBackend()        → Auto-detect: Local → Cloud → Google AI
+    ├── _withFallback()         → Runtime retry: if primary fails, switch to fallback
+    ├── _initGoogleAiFallback() → Warm up Gemini in background
+    │
+    ├── ollamaService.js
+    │   ├── switchToLocal()     → http://localhost:11434 (via Vite proxy)
+    │   └── switchToCloud()     → /api/ollama-cloud (via Vercel Edge proxy)
+    │
+    └── geminiService.js        → Google AI SDK (@google/generative-ai)
 ```
 
 ### Component Library (`@lenslearn/ui`)
 
-The UI layer is designed as a standalone, publishable npm package:
-
-- **20 components:** Badge, Button, Card, ChatThread, Chip, Dropdown, EmptyState, IconButton, Input, LanguageSelector, Modal, ModelSelector, Progress, ProgressRing, ScoreRing, Skeleton, Toast, Toggle, Tooltip
-- **19 hooks:** useDebounce, useThrottle, useMediaQuery, useIntersectionObserver, useLocalStorage, useClipboard, useTimer, and more
-- **6 HOCs:** withLoading, withErrorBoundary, withAuth, withTheme, withAnimation, withAccessibility
-- **Design tokens:** Colors, spacing, typography, shadows, breakpoints, z-index, border-radius — all as CSS custom properties
-- **5 themes:** Default Dark, Light, OLED, High Contrast, Sepia
-- **10 accent colors:** Indigo, Blue, Emerald, Rose, Amber, Violet, Cyan, Orange, Pink, Lime
+The UI layer is designed as a standalone, publishable npm package with 19 components, 19 hooks, 6 HOCs, a design token system, 5 themes, and 10 accent colors.
 
 ---
 
@@ -211,17 +249,16 @@ This project is built for the [Gemma 4 Good Hackathon](https://www.kaggle.com/co
 
 | Track | Fit | Why |
 |-------|-----|-----|
-| **Main Track** | Core submission | Complete, production-quality educational AI app |
+| **Main Track** | Core submission | Complete, production-quality educational AI app with live demo |
 | **Future of Education** | Perfect fit | AI-powered adaptive tutoring for underserved students |
-| **Digital Equity & Inclusivity** | Perfect fit | Offline-first, multilingual, free, privacy-preserving |
-| **Ollama** | Integrated | Ollama is the local AI runtime — deeply integrated |
-| **Unsloth** | Planned | Fine-tuning Gemma 4 on educational Q&A data |
+| **Digital Equity & Inclusivity** | Perfect fit | Offline-first, 60+ languages incl. 26 Indian languages, free, privacy-preserving |
+| **Ollama** | Integrated | Ollama is the primary AI runtime — deeply integrated with local + cloud modes |
 
 ### Judging Criteria
 
-- **Impact & Vision (40%):** 250M students lack quality education. LensLearn bridges the gap with local AI
-- **Video Pitch & Storytelling (30%):** Personal story from rural Tamil Nadu, live demo of Tamil→English tutoring
-- **Technical Depth (30%):** Full component library, model registry, adaptive hardware detection, PWA offline
+- **Impact & Vision (40%):** 250M students lack quality education — LensLearn bridges the gap with local AI that speaks their language
+- **Video Pitch & Storytelling (30%):** Personal story from rural Tamil Nadu, live demo of multilingual tutoring
+- **Technical Depth (30%):** Full component library, 3-tier AI fallback chain, model registry, adaptive hardware detection, PWA offline, 60+ language support, accessibility
 
 ---
 
@@ -229,12 +266,7 @@ This project is built for the [Gemma 4 Good Hackathon](https://www.kaggle.com/co
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Areas where help is especially welcome:
-- Adding support for more languages
-- Creating curriculum-aligned Q&A datasets for model fine-tuning
-- Testing on low-end Android devices
-- Accessibility improvements
-- Translations of the UI itself
+Areas where help is especially welcome: adding languages, curriculum-aligned datasets for fine-tuning, testing on low-end Android devices, accessibility improvements, UI translations.
 
 ---
 
@@ -247,7 +279,7 @@ Areas where help is especially welcome:
 ## Author
 
 **Dilli Prasath S**
-Frontend Software Engineer · Chennai, India
+Frontend Software Engineer · Zoho Corporation · Chennai, India
 Built with purpose for the Gemma 4 Good Hackathon 2026.
 
 *"The students who succeed aren't always the smartest — they're the ones who can understand the textbook. LensLearn changes that equation."*
