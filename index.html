@@ -14,6 +14,31 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Auto-recover from stale deploys: if a JS chunk fails to load
+      // (MIME type error or network error), unregister the service worker
+      // and reload once so the browser fetches fresh assets.
+      window.addEventListener('error', function(e) {
+        if (e.message && (e.message.includes('MIME type') || e.message.includes('Failed to fetch dynamically imported module'))) {
+          if (!sessionStorage.getItem('sw_reload')) {
+            sessionStorage.setItem('sw_reload', '1');
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+                caches.keys().then(function(names) {
+                  names.forEach(function(n) { caches.delete(n); });
+                  window.location.reload();
+                });
+              });
+            } else {
+              window.location.reload();
+            }
+          } else {
+            sessionStorage.removeItem('sw_reload');
+          }
+        }
+      });
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

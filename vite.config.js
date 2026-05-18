@@ -38,6 +38,11 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],  // Don't intercept serverless API routes
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,             // Remove old precache entries on SW update
+        skipWaiting: true,                       // Activate new SW immediately (no waiting)
+        clientsClaim: true,                      // Take control of all pages immediately
+        // Don't serve HTML fallback for JS/CSS asset requests — let them 404 so lazyRetry handles it
+        navigateFallbackAllowlist: [/^(?!\/(assets|sw\.js|workbox-))/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
